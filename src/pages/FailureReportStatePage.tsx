@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { storageService } from "../services/storage";
 import type { MainSheetEntry } from "../types/mainSheet";
 import { computeReportSnapshot, type ReportSnapshot, type ReportRow } from "../utils/reportCalculator";

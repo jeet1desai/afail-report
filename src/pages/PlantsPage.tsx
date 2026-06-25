@@ -3,7 +3,7 @@ import { storageService } from "../services/storage";
 import { parseExcelInWorker } from "../utils/excelParser";
 import { generateId } from "../utils/helpers";
 import type { Plant } from "../types/plant";
-import { Sheet, SheetToolbar, DataSheet, SheetEmptyState, SearchInput, CellBadge, ToolbarButton } from "../components/Sheet";
+import { Sheet, SheetToolbar, DataSheet, SheetEmptyState, SearchInput, ToolbarButton } from "../components/Sheet";
 import type { ColumnDef } from "../components/Sheet";
 import { Modal } from "../components/Modal";
 import { UploadZone } from "../components/UploadZone";

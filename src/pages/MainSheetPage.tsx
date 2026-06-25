@@ -270,8 +270,8 @@ function MainSheetPage() {
         }
 
         return {
-          id: generateId(),
           ...row,
+          id: generateId(),
           messageText2: msg2,
           ctFlag: ctFlagValue,
           mode,
