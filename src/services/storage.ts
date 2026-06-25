@@ -8,7 +8,7 @@
  * All components interact with data ONLY through this service.
  */
 
-const DB_NAME = "AdaniShipmentDB";
+const DB_NAME = "ShipmentFailureReportDB";
 const STORE_NAME = "collections";
 
 /**

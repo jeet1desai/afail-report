@@ -1,5 +1,5 @@
 {
-  "name": "adani-shipment-failure-report",
+  "name": "shipment-failure-report",
   "private": true,
   "version": "0.0.0",
   "type": "module",

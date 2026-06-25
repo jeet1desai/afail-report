@@ -245,7 +245,7 @@ function DashboardLayout() {
       <aside className="sidebar">
         <div className="sidebar__brand">
           <div className="sidebar__logo">A</div>
-          <div className="sidebar__title">Adani Shipment</div>
+          <div className="sidebar__title">Shipment Report</div>
         </div>
 
         <nav className="sidebar__nav">
