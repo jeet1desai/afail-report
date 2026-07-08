@@ -22,6 +22,7 @@ const navItems = [
   //     </svg>
   //   ),
   // },
+
   {
     path: "/plants",
     label: "Plants",
@@ -98,6 +99,26 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    path: "/summary",
+    label: "Summary",
+    icon: (
+      <svg
+        className="sidebar__icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 17h6" />
+        <path d="M9 12h6" />
+        <path d="M9 7h6" />
+      </svg>
+    ),
+  },
 ];
 
 const pageTitleConfig: Record<string, { title: string; icon: JSX.Element }> = {
@@ -115,6 +136,25 @@ const pageTitleConfig: Record<string, { title: string; icon: JSX.Element }> = {
       >
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14 2 14 8 20 8" />
+      </svg>
+    ),
+  },
+  "/summary": {
+    title: "Summary",
+    icon: (
+      <svg
+        className="header__title-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 17h6" />
+        <path d="M9 12h6" />
+        <path d="M9 7h6" />
       </svg>
     ),
   },

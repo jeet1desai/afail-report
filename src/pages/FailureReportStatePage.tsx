@@ -54,6 +54,7 @@ export default function FailureReportStatePage() {
 
   const rows = currentSnapshot ? (currentSnapshot.tabs[activeTab] ?? []) : [];
 
+
   // Create a map of rawDate -> row for quick baseline lookup
   const baselineMap = useMemo(() => {
     if (!baselineSnapshot) return {};

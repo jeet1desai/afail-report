@@ -130,10 +130,10 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       // Fallback: if messageText2 is empty, check raw messageText directly
       const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || "";
 
-      const isCustomerNotFound = msgRaw.startsWith("customer not found") || msgRaw.includes(":customer not found") ? 1 : 0;
-      const isFreightSlab = msgRaw.startsWith("secondary freight lookup not found for key") || msgRaw.includes(":secondary freight lookup not found for key") ? 1 : 0;
-      const isTruckNotFound = msgRaw.startsWith("truck details not found for truck number") || msgRaw.includes(":truck details not found for truck number") ? 1 : 0;
-      const isFreightNotFound = msgRaw.startsWith("primary freight lookup not found for key") || msgRaw.includes(":primary freight lookup not found for key") || msgRaw.includes("freight not found") ? 1 : 0;
+      const isCustomerNotFound = msgRaw.includes("customer not found") ? 1 : 0;
+      const isFreightSlab = msgRaw.includes("secondary freight lookup not found") ? 1 : 0;
+      const isTruckNotFound = msgRaw.includes("truck details not found") ? 1 : 0;
+      const isFreightNotFound = msgRaw.includes("primary freight lookup not found") || msgRaw.includes("freight not found") ? 1 : 0;
 
       dateMap[dateStr].totalInvoices += hasInvoice;
       dateMap[dateStr].billedQty += qty;
@@ -141,6 +141,15 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       dateMap[dateStr].freightSlabNotMaintained += isFreightSlab;
       dateMap[dateStr].truckNotFound += isTruckNotFound;
       dateMap[dateStr].freightNotFound += isFreightNotFound;
+
+      let isFailure = false;
+      if (activeTab === "Secondary" || activeTab === "DLSecondary") {
+        isFailure = (isCustomerNotFound || isFreightSlab) > 0;
+      } else {
+        isFailure = (isCustomerNotFound || isTruckNotFound || isFreightNotFound) > 0;
+      }
+      const isResolved = (isFailure && e.aopReceivedFlag?.trim().toUpperCase() === "X") ? 1 : 0;
+      dateMap[dateStr].resolved += isResolved;
     }
 
     const sortedDates = Object.keys(dateMap).sort((a, b) => {
