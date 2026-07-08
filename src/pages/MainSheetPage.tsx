@@ -240,6 +240,9 @@ function MainSheetPage() {
           const parts = originalText.split(":");
           if (parts.length > 1) {
             msg2 = parts.slice(1).join(":").trim();
+          } else {
+            // No ":" separator — use the full message text directly
+            msg2 = originalText.trim();
           }
         }
 

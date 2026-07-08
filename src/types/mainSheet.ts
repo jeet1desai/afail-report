@@ -22,7 +22,7 @@ export interface MainSheetEntry {
   shipDigi10: string;
   sourceDigi10: string;
   shippingType: string;
-  newShippingType: string;
+  newShippingType?: string;
   specialProcIndicator: string;
   contractType: string;
   materialGroup1: string;
@@ -54,5 +54,6 @@ export interface MainSheetEntry {
   aopReceivedFlag: string;
   aopReceivedDate: string;
   aopReceivedTime: string;
+  billedQtyUnit?: string;
   createdAt: string;
 }

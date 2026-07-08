@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { useRef, useState, type JSX } from "react";
-import { storageService } from "../services/storage";
+import { useState, type JSX } from "react";
 
 const navItems = [
   // {
@@ -193,7 +192,6 @@ const pageTitleConfig: Record<string, { title: string; icon: JSX.Element }> = {
 
 function DashboardLayout() {
   const location = useLocation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const config = pageTitleConfig[location.pathname] || { title: "Dashboard", icon: null };
@@ -201,42 +199,6 @@ function DashboardLayout() {
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
-
-  const handleExport = async () => {
-    const data = await storageService.exportAll();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `shipment-data-${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("Data exported successfully!", "success");
-  };
-
-  const handleImport = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string) as Record<string, unknown[]>;
-        for (const [collection, items] of Object.entries(data)) {
-          await storageService.bulkReplace(collection, items);
-        }
-        showToast("Data imported successfully! Refresh pages to see changes.", "success");
-      } catch {
-        showToast("Invalid JSON file.", "error");
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = "";
   };
 
   return (
@@ -257,44 +219,6 @@ function DashboardLayout() {
             </NavLink>
           ))}
         </nav>
-
-        <div className="sidebar__footer">
-          <button className="sidebar__footer-btn sidebar__footer-btn--export" onClick={handleExport}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export JSON
-          </button>
-          <button className="sidebar__footer-btn sidebar__footer-btn--import" onClick={handleImport}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Import JSON
-          </button>
-          <input type="file" ref={fileInputRef} accept=".json" className="hidden-input" onChange={handleFileChange} />
-        </div>
       </aside>
 
       {/* Main Content */}

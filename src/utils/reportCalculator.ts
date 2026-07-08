@@ -19,6 +19,7 @@ export interface ReportSnapshot {
   label: string; // e.g. "Jun 25, 2026 - 2:00 PM"
   tabs: {
     Secondary: ReportRow[];
+    DLSecondary: ReportRow[];
     Sanghi: ReportRow[];
     Dahej: ReportRow[];
     Surat: ReportRow[];
@@ -29,11 +30,11 @@ export interface ReportSnapshot {
 function formatDateWithSuffix(dateStr: string) {
   const parts = dateStr.split("-");
   if (parts.length !== 3) return dateStr;
-  
+
   const y = parseInt(parts[0], 10);
   const mIndex = parseInt(parts[1], 10) - 1;
   const d = parseInt(parts[2], 10);
-  
+
   if (isNaN(y) || isNaN(mIndex) || isNaN(d)) return dateStr;
 
   const dateObj = new Date(y, mIndex, d);
@@ -48,11 +49,12 @@ function formatDateWithSuffix(dateStr: string) {
 }
 
 export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string): ReportSnapshot {
-  const tabs = ["Secondary", "Sanghi", "Dahej", "Surat", "SOW"] as const;
-  type TabName = typeof tabs[number];
+  const tabs = ["Secondary", "DLSecondary", "Sanghi", "Dahej", "Surat", "SOW"] as const;
+  type TabName = (typeof tabs)[number];
 
   const resultTabs: Record<TabName, ReportRow[]> = {
     Secondary: [],
+    DLSecondary: [],
     Sanghi: [],
     Dahej: [],
     Surat: [],
@@ -65,15 +67,20 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
     const filtered = entries.filter((e) => {
       const mode = e.mode?.trim().toLowerCase() || "";
       const region = e.shipToRegion?.trim().toUpperCase() || "";
-      
+
       if (activeTab === "Secondary") {
         if (mode !== "secondary") return false;
         if (region !== "DN" && region !== "GJ") return false;
         return true;
       }
+      if (activeTab === "DLSecondary") {
+        if (mode !== "secondary") return false;
+        if (region !== "DL") return false;
+        return true;
+      }
       if (primaryTabs.includes(activeTab)) {
         if (mode !== "primary") return false;
-        
+
         const pn = e.plantName?.trim().toLowerCase() || "";
         if (activeTab === "SOW") {
           if (!["adalaj - sow", "moraiya - sow", "sarkhej - sow"].includes(pn)) return false;
@@ -120,11 +127,13 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       const qty = parseFloat(e.billedQty) || 0;
 
       const msg2 = e.messageText2?.toLowerCase().trim() || "";
-      
-      const isCustomerNotFound = msg2 === "customer not found" ? 1 : 0;
-      const isFreightSlab = msg2 === "secondary freight lookup not found for key" ? 1 : 0;
-      const isTruckNotFound = msg2 === "truck details not found for truck number" ? 1 : 0;
-      const isFreightNotFound = (msg2 === "primary freight lookup not found for key" || msg2.includes("freight not found")) ? 1 : 0;
+      // Fallback: if messageText2 is empty, check raw messageText directly
+      const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || "";
+
+      const isCustomerNotFound = msgRaw.startsWith("customer not found") || msgRaw.includes(":customer not found") ? 1 : 0;
+      const isFreightSlab = msgRaw.startsWith("secondary freight lookup not found for key") || msgRaw.includes(":secondary freight lookup not found for key") ? 1 : 0;
+      const isTruckNotFound = msgRaw.startsWith("truck details not found for truck number") || msgRaw.includes(":truck details not found for truck number") ? 1 : 0;
+      const isFreightNotFound = msgRaw.startsWith("primary freight lookup not found for key") || msgRaw.includes(":primary freight lookup not found for key") || msgRaw.includes("freight not found") ? 1 : 0;
 
       dateMap[dateStr].totalInvoices += hasInvoice;
       dateMap[dateStr].billedQty += qty;
@@ -146,8 +155,8 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
     const computedRows = sortedDates.map((date) => {
       const row = dateMap[date];
       let failureCount = 0;
-      
-      if (activeTab === "Secondary") {
+
+      if (activeTab === "Secondary" || activeTab === "DLSecondary") {
         failureCount = row.customerNotFound + row.freightSlabNotMaintained;
       } else if (primaryTabs.includes(activeTab)) {
         failureCount = row.customerNotFound + row.truckNotFound + row.freightNotFound;
@@ -176,9 +185,9 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
   const label = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric"
+    year: "numeric",
   }).format(new Date(dateStr));
-  
+
   return {
     id: dateStr,
     timestamp: ts,

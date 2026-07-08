@@ -3,8 +3,17 @@ import { storageService } from "../services/storage";
 import type { MainSheetEntry } from "../types/mainSheet";
 import { computeReportSnapshot, type ReportSnapshot, type ReportRow } from "../utils/reportCalculator";
 
-const tabs = ["Secondary", "Sanghi", "Dahej", "SOW", "Surat"] as const;
+const tabs = ["DLSecondary", "Secondary", "Sanghi", "Dahej", "SOW", "Surat"] as const;
 type TabName = (typeof tabs)[number];
+
+const tabDisplayNames: Record<TabName, string> = {
+  Secondary: "GJ Secondary",
+  DLSecondary: "DL Secondary",
+  Sanghi: "Sanghi",
+  Dahej: "Dahej",
+  SOW: "SOW",
+  Surat: "Surat",
+};
 
 export default function FailureReportStatePage() {
   const [history, setHistory] = useState<ReportSnapshot[]>([]);
@@ -14,32 +23,18 @@ export default function FailureReportStatePage() {
 
   useEffect(() => {
     async function load() {
-      const storedHistory = await storageService.getAll<ReportSnapshot>("report_history");
+      // Always recompute snapshot from main_sheet to ensure all tabs are fresh
+      await storageService.clear("report_history");
 
-      // Check if we need to migrate/clear old format snapshots (where id is a full ISO string instead of YYYY-MM-DD)
-      const hasLegacyFormat = storedHistory.some((h) => h.id.includes("T"));
-
-      if (storedHistory.length === 0 || hasLegacyFormat) {
-        if (hasLegacyFormat) {
-          await storageService.clear("report_history");
-        }
-
-        const entries = await storageService.getAll<MainSheetEntry>("main_sheet");
-        if (entries.length > 0) {
-          const dateStr = new Date().toISOString().split("T")[0];
-          const snapshot = computeReportSnapshot(entries, dateStr);
-          await storageService.create("report_history", snapshot);
-          setHistory([snapshot]);
-          setViewDate(dateStr);
-        } else {
-          setHistory([]);
-        }
+      const entries = await storageService.getAll<MainSheetEntry>("main_sheet");
+      if (entries.length > 0) {
+        const dateStr = new Date().toISOString().split("T")[0];
+        const snapshot = computeReportSnapshot(entries, dateStr);
+        await storageService.create("report_history", snapshot);
+        setHistory([snapshot]);
+        setViewDate(dateStr);
       } else {
-        // Sort history by timestamp descending (newest first)
-        const sorted = storedHistory.sort((a, b) => b.timestamp - a.timestamp);
-        setHistory(sorted);
-        // Default view date is the newest
-        setViewDate(sorted[0].id);
+        setHistory([]);
       }
       setLoading(false);
     }
@@ -57,7 +52,7 @@ export default function FailureReportStatePage() {
     return sorted[currentIndex + 1]; // next oldest
   }, [history, currentSnapshot]);
 
-  const rows = currentSnapshot ? currentSnapshot.tabs[activeTab] : [];
+  const rows = currentSnapshot ? (currentSnapshot.tabs[activeTab] ?? []) : [];
 
   // Create a map of rawDate -> row for quick baseline lookup
   const baselineMap = useMemo(() => {
@@ -89,6 +84,7 @@ export default function FailureReportStatePage() {
   };
 
   const isPrimary = ["Sanghi", "Dahej", "Surat", "SOW"].includes(activeTab);
+  const isSecondary = activeTab === "Secondary" || activeTab === "DLSecondary";
 
   if (loading) return <div className="loading">Loading data...</div>;
 
@@ -134,7 +130,7 @@ export default function FailureReportStatePage() {
                 <th className="num-col">Billed QTY</th>
                 <th className="num-col">Shipment Failure Count</th>
                 <th className="num-col">Customer not Found</th>
-                {activeTab === "Secondary" && <th className="num-col">Freight slab not maintained</th>}
+                {isSecondary && <th className="num-col">Freight slab not maintained</th>}
                 {isPrimary && <th className="num-col">Truck not found</th>}
                 {isPrimary && <th className="num-col">Freight not found</th>}
                 <th className="num-col">Resolved</th>
@@ -154,7 +150,7 @@ export default function FailureReportStatePage() {
                   <td className="num-col" style={{ backgroundColor: getCellColor("customerNotFound", row.customerNotFound, row.rawDate, i) }}>
                     {row.customerNotFound || "-"}
                   </td>
-                  {activeTab === "Secondary" && (
+                  {isSecondary && (
                     <td
                       className="num-col"
                       style={{ backgroundColor: getCellColor("freightSlabNotMaintained", row.freightSlabNotMaintained, row.rawDate, i) }}
@@ -207,7 +203,7 @@ export default function FailureReportStatePage() {
               outline: "none",
             }}
           >
-            {tab}
+            {tabDisplayNames[tab]}
           </button>
         ))}
       </div>
