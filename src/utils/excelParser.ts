@@ -494,11 +494,8 @@ function formatDateValue(val: unknown): string {
     const num1 = parseInt(dmyMatch[1], 10);
     const num2 = parseInt(dmyMatch[2], 10);
     const year = dmyMatch[3];
-    let day = '',
-      month = '';
-
-    month = String(num1).padStart(2, '0');
-    day = String(num2).padStart(2, '0');
+    const day = String(num1).padStart(2, '0');
+    const month = String(num2).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
   }

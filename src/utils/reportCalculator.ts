@@ -1,4 +1,5 @@
 import type { MainSheetEntry } from '../types/mainSheet';
+import type { CustomSheetConfig } from '../types/customSheet';
 
 export interface ReportRow {
   date: string;
@@ -17,16 +18,7 @@ export interface ReportSnapshot {
   id: string; // ISO date string or unique ID
   timestamp: number;
   label: string; // e.g. "Jun 25, 2026 - 2:00 PM"
-  tabs: {
-    Secondary: ReportRow[];
-    DLSecondary: ReportRow[];
-    KASecondary: ReportRow[];
-    GASecondary: ReportRow[];
-    Sanghi: ReportRow[];
-    Dahej: ReportRow[];
-    Surat: ReportRow[];
-    SOW: ReportRow[];
-  };
+  tabs: Record<string, ReportRow[]>;
 }
 
 function formatDateWithSuffix(dateStr: string) {
@@ -50,63 +42,40 @@ function formatDateWithSuffix(dateStr: string) {
   return `${d}${suffix} ${m} ${y}`;
 }
 
-export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string): ReportSnapshot {
-  const tabs = ['Secondary', 'DLSecondary', 'KASecondary', 'GASecondary', 'Sanghi', 'Dahej', 'Surat', 'SOW'] as const;
-  type TabName = (typeof tabs)[number];
+export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string, configs: CustomSheetConfig[]): ReportSnapshot {
+  const resultTabs: Record<string, ReportRow[]> = {};
 
-  const resultTabs: Record<TabName, ReportRow[]> = {
-    Secondary: [],
-    DLSecondary: [],
-    KASecondary: [],
-    GASecondary: [],
-    Sanghi: [],
-    Dahej: [],
-    Surat: [],
-    SOW: [],
-  };
-
-  const primaryTabs = ['Sanghi', 'Dahej', 'Surat', 'SOW'];
-
-  for (const activeTab of tabs) {
+  for (const config of configs) {
     const filtered = entries.filter((e) => {
       const mode = e.mode?.trim().toLowerCase() || '';
       const region = e.shipToRegion?.trim().toUpperCase() || '';
+      const plant = e.plantName?.trim().toLowerCase() || '';
+      const hasCt = e.ctFlag && e.ctFlag.trim() !== '';
 
-      if (activeTab === 'Secondary') {
-        if (mode !== 'secondary') return false;
-        if (region !== 'DN' && region !== 'GJ') return false;
-        return true;
-      }
-      if (activeTab === 'DLSecondary') {
-        if (mode !== 'secondary') return false;
-        if (region !== 'DL') return false;
-        return true;
-      }
-      if (activeTab === 'KASecondary') {
-        if (mode !== 'secondary') return false;
-        if (region !== 'KA') return false;
-        return true;
-      }
-      if (activeTab === 'GASecondary') {
-        if (mode !== 'secondary') return false;
-        if (region !== 'GA') return false;
-        return true;
-      }
-      if (primaryTabs.includes(activeTab)) {
-        if (mode !== 'primary') return false;
+      // 1. Mode Filter
+      if (config.mode === 'primary' && mode !== 'primary') return false;
+      if (config.mode === 'secondary' && mode !== 'secondary') return false;
 
-        const pn = e.plantName?.trim().toLowerCase() || '';
-        if (activeTab === 'SOW') {
-          if (!['adalaj - sow', 'moraiya - sow', 'sarkhej - sow'].includes(pn)) return false;
-        } else {
-          if (pn !== activeTab.toLowerCase()) return false;
-        }
-
-        if (region !== 'DN' && region !== 'GJ') return false;
-        if (e.ctFlag && e.ctFlag.trim() !== '') return false;
-        return true;
+      // 2. Region Filter
+      if (config.regions.length > 0) {
+        const matched = config.regions.some((r) => r.trim().toUpperCase() === region);
+        if (!matched) return false;
       }
-      return false;
+
+      // 3. Plant Filter
+      if (config.plants.length > 0) {
+        const matched = config.plants.some((p) => {
+          const filterP = p.trim().toLowerCase();
+          return plant.includes(filterP);
+        });
+        if (!matched) return false;
+      }
+
+      // 4. CT Flag Filter
+      if (config.ctFlag === 'empty' && hasCt) return false;
+      if (config.ctFlag === 'non-empty' && !hasCt) return false;
+
+      return true;
     });
 
     const dateMap: Record<
@@ -141,7 +110,6 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       const qty = parseFloat(e.billedQty) || 0;
 
       const msg2 = e.messageText2?.toLowerCase().trim() || '';
-      // Fallback: if messageText2 is empty, check raw messageText directly
       const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || '';
 
       const isCustomerNotFound = msgRaw.includes('customer not found') ? 1 : 0;
@@ -156,12 +124,13 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       dateMap[dateStr].truckNotFound += isTruckNotFound;
       dateMap[dateStr].freightNotFound += isFreightNotFound;
 
-      let isFailure = false;
-      if (activeTab.toLowerCase().includes('secondary')) {
-        isFailure = (isCustomerNotFound || isFreightSlab) > 0;
-      } else {
-        isFailure = (isCustomerNotFound || isTruckNotFound || isFreightNotFound) > 0;
-      }
+      const hasConfiguredError =
+        (config.failureErrors.customerNotFound && isCustomerNotFound) ||
+        (config.failureErrors.freightSlabNotMaintained && isFreightSlab) ||
+        (config.failureErrors.truckNotFound && isTruckNotFound) ||
+        (config.failureErrors.freightNotFound && isFreightNotFound);
+
+      const isFailure = hasConfiguredError ? 1 : 0;
       const isResolved = isFailure && e.aopReceivedFlag?.trim().toUpperCase() === 'X' ? 1 : 0;
       dateMap[dateStr].resolved += isResolved;
     }
@@ -179,11 +148,10 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       const row = dateMap[date];
       let failureCount = 0;
 
-      if (activeTab.toLowerCase().includes('secondary')) {
-        failureCount = row.customerNotFound + row.freightSlabNotMaintained;
-      } else if (primaryTabs.includes(activeTab)) {
-        failureCount = row.customerNotFound + row.truckNotFound + row.freightNotFound;
-      }
+      if (config.failureErrors.customerNotFound) failureCount += row.customerNotFound;
+      if (config.failureErrors.freightSlabNotMaintained) failureCount += row.freightSlabNotMaintained;
+      if (config.failureErrors.truckNotFound) failureCount += row.truckNotFound;
+      if (config.failureErrors.freightNotFound) failureCount += row.freightNotFound;
 
       const formattedDate = date === '(blank)' ? date : formatDateWithSuffix(date);
 
@@ -201,7 +169,7 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       };
     });
 
-    resultTabs[activeTab] = computedRows;
+    resultTabs[config.id] = computedRows;
   }
 
   const ts = new Date(dateStr).getTime();

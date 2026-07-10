@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { storageService } from '../services/storage';
 import type { MainSheetEntry } from '../types/mainSheet';
 import { Sheet } from '../components/Sheet';
+import { getCustomSheets } from '../utils/defaultSheets';
+import type { CustomSheetConfig } from '../types/customSheet';
+import { ConfigureSheetsModal } from '../components/ConfigureSheetsModal';
 
 interface CategorySummary {
   name: string;
@@ -17,66 +20,61 @@ interface CategorySummary {
 
 export default function SummaryPage() {
   const [entries, setEntries] = useState<MainSheetEntry[]>([]);
+  const [configs, setConfigs] = useState<CustomSheetConfig[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isConfigureOpen, setIsConfigureOpen] = useState(false);
+
+  const loadData = async () => {
+    const data = await storageService.getAll<MainSheetEntry>('main_sheet');
+    setEntries(data);
+
+    const sheetConfigs = await getCustomSheets();
+    setConfigs(sheetConfigs);
+
+    setLoading(false);
+  };
 
   useEffect(() => {
-    async function load() {
-      const data = await storageService.getAll<MainSheetEntry>('main_sheet');
-      setEntries(data);
-      setLoading(false);
-    }
-    load();
+    loadData();
   }, []);
 
   const summaries = useMemo(() => {
-    if (entries.length === 0) return [];
+    if (entries.length === 0 || configs.length === 0) return [];
 
-    const categories = [
-      {
-        name: 'GJ secondary',
-        filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || '';
-          const region = e.shipToRegion?.trim().toUpperCase() || '';
-          return mode === 'secondary' && (region === 'DN' || region === 'GJ');
-        },
-      },
-      {
-        name: 'GJ Primary',
-        filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || '';
-          const region = e.shipToRegion?.trim().toUpperCase() || '';
-          const hasCt = e.ctFlag && e.ctFlag.trim() !== '';
-          return mode === 'primary' && (region === 'DN' || region === 'GJ') && !hasCt;
-        },
-      },
-      {
-        name: 'DL Secondary',
-        filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || '';
-          const region = e.shipToRegion?.trim().toUpperCase() || '';
-          return mode === 'secondary' && region === 'DL';
-        },
-      },
-      {
-        name: 'KA Secondary',
-        filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || '';
-          const region = e.shipToRegion?.trim().toUpperCase() || '';
-          return mode === 'secondary' && region === 'KA';
-        },
-      },
-      {
-        name: 'GA Secondary',
-        filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || '';
-          const region = e.shipToRegion?.trim().toUpperCase() || '';
-          return mode === 'secondary' && region === 'GA';
-        },
-      },
-    ];
+    const summaryConfigs = configs.filter((c) => c.showInSummary);
 
-    const results: CategorySummary[] = categories.map((cat) => {
-      const filtered = entries.filter(cat.filter);
+    const results: CategorySummary[] = summaryConfigs.map((config) => {
+      const filtered = entries.filter((e) => {
+        const mode = e.mode?.trim().toLowerCase() || '';
+        const region = e.shipToRegion?.trim().toUpperCase() || '';
+        const plant = e.plantName?.trim().toLowerCase() || '';
+        const hasCt = e.ctFlag && e.ctFlag.trim() !== '';
+
+        // 1. Mode Filter
+        if (config.mode === 'primary' && mode !== 'primary') return false;
+        if (config.mode === 'secondary' && mode !== 'secondary') return false;
+
+        // 2. Region Filter
+        if (config.regions.length > 0) {
+          const matched = config.regions.some((r) => r.trim().toUpperCase() === region);
+          if (!matched) return false;
+        }
+
+        // 3. Plant Filter
+        if (config.plants.length > 0) {
+          const matched = config.plants.some((p) => {
+            const filterP = p.trim().toLowerCase();
+            return plant.includes(filterP);
+          });
+          if (!matched) return false;
+        }
+
+        // 4. CT Flag Filter
+        if (config.ctFlag === 'empty' && hasCt) return false;
+        if (config.ctFlag === 'non-empty' && !hasCt) return false;
+
+        return true;
+      });
 
       let totalShipments = 0;
       let totalVolume = 0;
@@ -93,17 +91,18 @@ export default function SummaryPage() {
         const msg2 = e.messageText2?.toLowerCase().trim() || '';
         const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || '';
 
-        const isCustomerNotFound = msgRaw.includes('customer not found');
-        const isFreightSlab = msgRaw.includes('secondary freight lookup not found');
-        const isTruckNotFound = msgRaw.includes('truck details not found');
-        const isFreightNotFound = msgRaw.includes('primary freight lookup not found') || msgRaw.includes('freight not found');
+        const isCustomerNotFound = msgRaw.includes('customer not found') ? 1 : 0;
+        const isFreightSlab = msgRaw.includes('secondary freight lookup not found') ? 1 : 0;
+        const isTruckNotFound = msgRaw.includes('truck details not found') ? 1 : 0;
+        const isFreightNotFound = msgRaw.includes('primary freight lookup not found') || msgRaw.includes('freight not found') ? 1 : 0;
 
-        let isFailure = false;
-        if (cat.name.toLowerCase().includes('secondary')) {
-          isFailure = isCustomerNotFound || isFreightSlab;
-        } else {
-          isFailure = isCustomerNotFound || isTruckNotFound || isFreightNotFound;
-        }
+        const hasConfiguredError =
+          (config.failureErrors.customerNotFound && isCustomerNotFound) ||
+          (config.failureErrors.freightSlabNotMaintained && isFreightSlab) ||
+          (config.failureErrors.truckNotFound && isTruckNotFound) ||
+          (config.failureErrors.freightNotFound && isFreightNotFound);
+
+        const isFailure = hasConfiguredError ? 1 : 0;
 
         if (isFailure) {
           failureCount += 1;
@@ -119,7 +118,7 @@ export default function SummaryPage() {
       const pendingRate = totalShipments > 0 ? (pendingCount / totalShipments) * 100 : 0;
 
       return {
-        name: cat.name,
+        name: config.name,
         totalShipments,
         totalVolume,
         failureCount,
@@ -132,7 +131,7 @@ export default function SummaryPage() {
     });
 
     return results;
-  }, [entries]);
+  }, [entries, configs]);
 
   const totals = useMemo(() => {
     if (summaries.length === 0) {
@@ -171,7 +170,29 @@ export default function SummaryPage() {
   return (
     <Sheet>
       <div className="pivot-report" style={{ padding: '20px' }}>
-        <h2 className="pivot-table__title">Executive Failure Summary</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 className="pivot-table__title" style={{ margin: 0 }}>
+            Executive Failure Summary
+          </h2>
+          <button
+            onClick={() => setIsConfigureOpen(true)}
+            className="btn btn--secondary"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '0.85rem',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Manage Sheets
+          </button>
+        </div>
 
         <table className="pivot-table">
           <thead>
@@ -208,6 +229,8 @@ export default function SummaryPage() {
           </tfoot>
         </table>
       </div>
+
+      <ConfigureSheetsModal open={isConfigureOpen} onClose={() => setIsConfigureOpen(false)} onSave={loadData} />
     </Sheet>
   );
 }

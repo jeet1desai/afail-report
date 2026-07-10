@@ -1,56 +1,86 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { storageService } from '../services/storage';
 import type { MainSheetEntry } from '../types/mainSheet';
 import { computeReportSnapshot, type ReportSnapshot, type ReportRow } from '../utils/reportCalculator';
-
-const tabs = ['KASecondary', 'GASecondary', 'DLSecondary', 'Secondary', 'Sanghi', 'Dahej', 'SOW', 'Surat'] as const;
-type TabName = (typeof tabs)[number];
-
-const tabDisplayNames: Record<TabName, string> = {
-  Secondary: 'GJ Secondary',
-  DLSecondary: 'DL Secondary',
-  KASecondary: 'KA Secondary',
-  GASecondary: 'GA Secondary',
-  Sanghi: 'Sanghi',
-  Dahej: 'Dahej',
-  SOW: 'SOW',
-  Surat: 'Surat',
-};
+import { getCustomSheets } from '../utils/defaultSheets';
+import type { CustomSheetConfig } from '../types/customSheet';
+import { ConfigureSheetsModal } from '../components/ConfigureSheetsModal';
 
 export default function FailureReportStatePage() {
   const [history, setHistory] = useState<ReportSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabName>('Secondary');
+  const [configs, setConfigs] = useState<CustomSheetConfig[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('');
   const [viewDate, setViewDate] = useState<string>('');
+  const [isConfigureOpen, setIsConfigureOpen] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      const entries = await storageService.getAll<MainSheetEntry>('main_sheet');
-      const existingHistory = await storageService.getAll<ReportSnapshot>('report_history');
+  const loadData = async () => {
+    const sheetConfigs = await getCustomSheets();
+    setConfigs(sheetConfigs);
 
-      if (entries.length > 0) {
-        const dateStr = new Date().toISOString().split('T')[0];
-
-        const alreadyExists = existingHistory.some((h) => h.id === dateStr);
-
-        if (!alreadyExists) {
-          const snapshot = computeReportSnapshot(entries, dateStr);
-          await storageService.create('report_history', snapshot);
-        }
-
-        const updatedHistory = await storageService.getAll<ReportSnapshot>('report_history');
-
-        setHistory(updatedHistory);
-        setViewDate(dateStr);
-      } else {
-        setHistory(existingHistory);
-      }
-
-      setLoading(false);
+    const stateReportConfigs = sheetConfigs.filter((c) => c.showInStateReport);
+    if (stateReportConfigs.length > 0) {
+      setActiveTab((prev) => {
+        if (stateReportConfigs.some((c) => c.id === prev)) return prev;
+        return stateReportConfigs[0].id;
+      });
     }
 
-    load();
+    let existingHistory = await storageService.getAll<ReportSnapshot>('report_history');
+
+    // Safe duplicate cleanup for today's auto-generated snapshot
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todaySnapshot = existingHistory.find((h) => h.id === todayStr);
+    if (todaySnapshot) {
+      const isDuplicate = existingHistory.some((h) => h.id !== todayStr && JSON.stringify(h.tabs) === JSON.stringify(todaySnapshot.tabs));
+      if (isDuplicate) {
+        await storageService.delete('report_history', todayStr);
+        existingHistory = await storageService.getAll<ReportSnapshot>('report_history');
+      }
+    }
+
+    setHistory(existingHistory);
+
+    if (existingHistory.length > 0) {
+      const sorted = [...existingHistory].sort((a, b) => b.timestamp - a.timestamp);
+      setViewDate((prev) => prev || sorted[0].id);
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const handleSaveConfigs = async () => {
+    const sheetConfigs = await getCustomSheets();
+    setConfigs(sheetConfigs);
+
+    const stateReportConfigs = sheetConfigs.filter((c) => c.showInStateReport);
+    if (stateReportConfigs.length > 0) {
+      setActiveTab((prev) => {
+        if (stateReportConfigs.some((c) => c.id === prev)) return prev;
+        return stateReportConfigs[0].id;
+      });
+    }
+
+    const rawEntries = await storageService.getAll<MainSheetEntry>('main_sheet');
+    const existingHistory = await storageService.getAll<ReportSnapshot>('report_history');
+
+    if (rawEntries.length > 0 && viewDate) {
+      const snapshot = computeReportSnapshot(rawEntries, viewDate, sheetConfigs);
+      const found = existingHistory.find((h) => h.id === viewDate);
+      if (found) {
+        await storageService.update('report_history', viewDate, snapshot as any);
+      } else {
+        await storageService.create('report_history', snapshot);
+      }
+
+      const updatedHistory = await storageService.getAll<ReportSnapshot>('report_history');
+      setHistory(updatedHistory);
+    }
+  };
 
   const currentSnapshot = useMemo(() => history.find((h) => h.id === viewDate), [history, viewDate]);
 
@@ -63,18 +93,44 @@ export default function FailureReportStatePage() {
     return sorted[currentIndex + 1]; // next oldest
   }, [history, currentSnapshot]);
 
-  const rows = currentSnapshot ? (currentSnapshot.tabs[activeTab] ?? []) : [];
+  const activeConfig = useMemo(() => configs.find((c) => c.id === activeTab), [configs, activeTab]);
+
+  const getTabRows = useCallback((snapshot: ReportSnapshot | null | undefined, config: CustomSheetConfig | undefined): ReportRow[] => {
+    if (!snapshot || !config) return [];
+    if (snapshot.tabs[config.id]) return snapshot.tabs[config.id];
+    if (snapshot.tabs[config.name]) return snapshot.tabs[config.name];
+
+    const defaultNameMap: Record<string, string> = {
+      gj_secondary: 'GJ Secondary',
+      dl_secondary: 'DL Secondary',
+      ka_secondary: 'KA Secondary',
+      ga_secondary: 'GA Secondary',
+      gj_primary: 'GJ Primary',
+      sanghi_primary: 'Sanghi',
+      dahej_primary: 'Dahej',
+      sow_primary: 'SOW',
+      surat_primary: 'Surat',
+    };
+    const defaultName = defaultNameMap[config.id];
+    if (defaultName && snapshot.tabs[defaultName]) {
+      return snapshot.tabs[defaultName];
+    }
+    return [];
+  }, []);
+
+  const rows = useMemo(() => getTabRows(currentSnapshot, activeConfig), [currentSnapshot, activeConfig, getTabRows]);
 
   // Create a map of rawDate -> row for quick baseline lookup
   const baselineMap = useMemo(() => {
-    if (!baselineSnapshot) return {};
-    const bRows = baselineSnapshot.tabs[activeTab];
+    if (!baselineSnapshot || !activeConfig) return {};
+    const bRows = getTabRows(baselineSnapshot, activeConfig);
+    if (!bRows) return {};
     const map: Record<string, ReportRow> = {};
     for (const r of bRows) {
       map[r.rawDate] = r;
     }
     return map;
-  }, [baselineSnapshot, activeTab]);
+  }, [baselineSnapshot, activeConfig, getTabRows]);
 
   const getCellColor = (key: keyof ReportRow, currentValue: number, rawDate: string, rowIndex: number) => {
     let baselineRow = baselineMap[rawDate];
@@ -83,13 +139,15 @@ export default function FailureReportStatePage() {
       return 'lightgreen';
     }
 
-    if (!baselineRow && rowIndex === 0 && baselineSnapshot && baselineSnapshot.tabs[activeTab].length > 0) {
-      baselineRow = baselineSnapshot.tabs[activeTab][0];
+    if (!baselineRow && rowIndex === 0 && baselineSnapshot && activeConfig) {
+      const bRows = getTabRows(baselineSnapshot, activeConfig);
+      if (bRows && bRows.length > 0) {
+        baselineRow = bRows[0];
+      }
     }
 
     if (!baselineRow) return undefined;
 
-    // return undefined;
     const current = Math.abs(Number(currentValue));
     const baseline = Math.abs(Number(baselineRow[key]));
 
@@ -108,8 +166,7 @@ export default function FailureReportStatePage() {
     return undefined;
   };
 
-  const isPrimary = ['Sanghi', 'Dahej', 'Surat', 'SOW'].includes(activeTab);
-  const isSecondary = activeTab.toLowerCase().includes('secondary');
+  const tabsToDisplay = useMemo(() => configs.filter((c) => c.showInStateReport), [configs]);
 
   if (loading) return <div className="loading">Loading data...</div>;
 
@@ -123,6 +180,15 @@ export default function FailureReportStatePage() {
         padding: 0,
       }}
     >
+      <style>{`
+        .pivot-table thead th {
+          position: sticky;
+          top: -22px;
+          z-index: 10;
+          background: var(--bg-hover);
+          box-shadow: 0 1px 0 var(--border-color); 
+        }
+      `}</style>
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
         <div
           style={{
@@ -137,6 +203,25 @@ export default function FailureReportStatePage() {
           </h2>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={() => setIsConfigureOpen(true)}
+              className="btn btn--secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.85rem',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              Manage Sheets
+            </button>
+
             <input
               type="date"
               value={viewDate}
@@ -165,7 +250,7 @@ export default function FailureReportStatePage() {
               borderRadius: '8px',
             }}
           >
-            No report found for this date.
+            No report found for this date. Please make sure you have imported the Excel file and clicked "Generate Report" on the Main Sheet page.
           </div>
         ) : rows.length > 0 ? (
           <table className="pivot-table">
@@ -175,11 +260,10 @@ export default function FailureReportStatePage() {
                 <th className="num-col">Total Invoices</th>
                 <th className="num-col">Billed QTY</th>
                 <th className="num-col">Shipment Failure Count</th>
-                <th className="num-col">Customer not Found</th>
-                {isSecondary && <th className="num-col">Freight slab not maintained</th>}
-                {isPrimary && <th className="num-col">Truck not found</th>}
-                {isPrimary && <th className="num-col">Freight not found</th>}
-                <th className="num-col">Resolved</th>
+                {activeConfig?.failureErrors.customerNotFound && <th className="num-col">Customer not Found</th>}
+                {activeConfig?.failureErrors.freightSlabNotMaintained && <th className="num-col">Freight slab not maintained</th>}
+                {activeConfig?.failureErrors.truckNotFound && <th className="num-col">Truck not found</th>}
+                {activeConfig?.failureErrors.freightNotFound && <th className="num-col">Freight not found</th>}
               </tr>
             </thead>
             <tbody>
@@ -203,15 +287,17 @@ export default function FailureReportStatePage() {
                     {Math.round(row.billedQty).toLocaleString()}
                   </td>
                   <td className="num-col">{row.failureCount || '-'}</td>
-                  <td
-                    className="num-col"
-                    style={{
-                      backgroundColor: getCellColor('customerNotFound', row.customerNotFound, row.rawDate, i),
-                    }}
-                  >
-                    {row.customerNotFound || '-'}
-                  </td>
-                  {isSecondary && (
+                  {activeConfig?.failureErrors.customerNotFound && (
+                    <td
+                      className="num-col"
+                      style={{
+                        backgroundColor: getCellColor('customerNotFound', row.customerNotFound, row.rawDate, i),
+                      }}
+                    >
+                      {row.customerNotFound || '-'}
+                    </td>
+                  )}
+                  {activeConfig?.failureErrors.freightSlabNotMaintained && (
                     <td
                       className="num-col"
                       style={{
@@ -221,7 +307,7 @@ export default function FailureReportStatePage() {
                       {row.freightSlabNotMaintained || '-'}
                     </td>
                   )}
-                  {isPrimary && (
+                  {activeConfig?.failureErrors.truckNotFound && (
                     <td
                       className="num-col"
                       style={{
@@ -231,7 +317,7 @@ export default function FailureReportStatePage() {
                       {row.truckNotFound || '-'}
                     </td>
                   )}
-                  {isPrimary && (
+                  {activeConfig?.failureErrors.freightNotFound && (
                     <td
                       className="num-col"
                       style={{
@@ -241,14 +327,6 @@ export default function FailureReportStatePage() {
                       {row.freightNotFound || '-'}
                     </td>
                   )}
-                  <td
-                    className="num-col"
-                    style={{
-                      backgroundColor: getCellColor('resolved', row.resolved, row.rawDate, i),
-                    }}
-                  >
-                    {row.resolved || '-'}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -263,7 +341,7 @@ export default function FailureReportStatePage() {
               borderRadius: '8px',
             }}
           >
-            No data available for {activeTab}.
+            No data available for {activeConfig?.name || activeTab}.
           </div>
         )}
       </div>
@@ -276,27 +354,31 @@ export default function FailureReportStatePage() {
           borderTop: '1px solid var(--border-color)',
           background: 'var(--bg-secondary)',
           padding: '8px 16px',
+          overflowX: 'auto',
+          whiteSpace: 'nowrap',
         }}
       >
-        {tabs.map((tab) => (
+        {tabsToDisplay.map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
             style={{
               padding: '8px 16px',
               border: 'none',
-              borderBottom: activeTab === tab ? '2px solid var(--accent-blue)' : '2px solid transparent',
+              borderBottom: activeTab === tab.id ? '2px solid var(--accent-blue)' : '2px solid transparent',
               background: 'transparent',
-              color: activeTab === tab ? 'var(--accent-blue)' : 'var(--text-secondary)',
-              fontWeight: activeTab === tab ? 600 : 400,
+              color: activeTab === tab.id ? 'var(--accent-blue)' : 'var(--text-secondary)',
+              fontWeight: activeTab === tab.id ? 600 : 400,
               cursor: 'pointer',
               outline: 'none',
             }}
           >
-            {tabDisplayNames[tab]}
+            {tab.name}
           </button>
         ))}
       </div>
+
+      <ConfigureSheetsModal open={isConfigureOpen} onClose={() => setIsConfigureOpen(false)} onSave={handleSaveConfigs} />
     </div>
   );
 }

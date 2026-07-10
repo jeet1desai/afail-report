@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Go script
+script/processor
+script/output.xlsx
+script/*.xlsx

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { storageService } from '../services/storage';
 import { parseExcelInWorker } from '../utils/excelParser';
 import { computeReportSnapshot } from '../utils/reportCalculator';
+import { getCustomSheets } from '../utils/defaultSheets';
 import { generateId } from '../utils/helpers';
 import type { MainSheetEntry } from '../types/mainSheet';
 import type { Plant } from '../types/plant';
@@ -111,27 +112,6 @@ const MagicIcon = (
   </svg>
 );
 
-const ChevronDownIcon = (
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px' }}>
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
-
-const SettingsIcon = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
-
-const DatabaseIcon = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-    <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
-  </svg>
-);
-
 function MainSheetPage() {
   const [entries, setEntries] = useState<MainSheetEntry[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -145,24 +125,14 @@ function MainSheetPage() {
   } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [showActionsDropdown, setShowActionsDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowActionsDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const loadEntries = useCallback(async () => {
     const data = await storageService.getAll<MainSheetEntry>(COLLECTION);
     setEntries(data);
+    const activeDateItem = await storageService.getById<{ id: string; value: string }>('active_report_date', 'active');
+    if (activeDateItem?.value) {
+      setUploadDate(activeDateItem.value);
+    }
   }, []);
 
   useEffect(() => {
@@ -179,7 +149,8 @@ function MainSheetPage() {
   });
 
   const upsertSnapshot = async (entriesToUse: MainSheetEntry[]) => {
-    const snapshot = computeReportSnapshot(entriesToUse, uploadDate);
+    const configs = await getCustomSheets();
+    const snapshot = computeReportSnapshot(entriesToUse, uploadDate, configs);
     const existing = await storageService.getAll<{ id: string }>('report_history');
     const found = existing.find((h) => h.id === snapshot.id);
     if (found) {
@@ -280,6 +251,7 @@ function MainSheetPage() {
       });
 
       await storageService.bulkReplace(COLLECTION, newEntries);
+      await storageService.bulkReplace('active_report_date', [{ id: 'active', value: uploadDate }]);
       await upsertSnapshot(newEntries);
       await loadEntries();
       setSelectedRows(new Set());
@@ -331,37 +303,7 @@ function MainSheetPage() {
     setEntries(updatedEntries);
   };
 
-  const handleSplitMessageText = async () => {
-    if (entries.length === 0) return;
-    setIsProcessing(true);
-    try {
-      const updatedEntries = entries.map((entry) => {
-        const originalText = entry.messageText ? String(entry.messageText).trim() : '';
-        let splitVal = '';
-        if (!originalText) {
-          splitVal = 'Processed Successfully';
-        } else {
-          const parts = originalText.split(':');
-          const firstPart = parts[0] ? parts[0].trim() : '';
-          splitVal = firstPart || 'Processed Successfully';
-        }
-        return {
-          ...entry,
-          messageText2: splitVal,
-        };
-      });
-
-      await storageService.bulkReplace(COLLECTION, updatedEntries);
-      await upsertSnapshot(updatedEntries);
-      setEntries(updatedEntries);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handlePlantLookup = async () => {
+  const handleGenerateFailureReport = async () => {
     if (entries.length === 0) return;
     setIsProcessing(true);
     try {
@@ -374,13 +316,23 @@ function MainSheetPage() {
       }
 
       const updatedEntries = entries.map((entry) => {
+        // A. Split Message Text
+        const originalText = entry.messageText ? String(entry.messageText).trim() : '';
+        let messageText2 = '';
+        if (!originalText) {
+          messageText2 = 'Processed Successfully';
+        } else {
+          const parts = originalText.split(':');
+          const firstPart = parts[0] ? parts[0].trim() : '';
+          messageText2 = firstPart || 'Processed Successfully';
+        }
+
+        // B. Plant Lookup
         const plantCode = entry.plant ? entry.plant.trim().toUpperCase() : '';
         const matchedPlant = plantMap.get(plantCode);
-
         let mode = '';
         let digipinL6 = '';
         let plantName = '';
-
         if (matchedPlant) {
           mode = matchedPlant.mode || '';
           digipinL6 = matchedPlant.plantDigi6 || '';
@@ -391,35 +343,11 @@ function MainSheetPage() {
           }
         }
 
-        return {
-          ...entry,
-          mode,
-          digipinL6,
-          plantName,
-        };
-      });
-
-      await storageService.bulkReplace(COLLECTION, updatedEntries);
-      await upsertSnapshot(updatedEntries);
-      setEntries(updatedEntries);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleFetchCTFlag = async () => {
-    if (entries.length === 0) return;
-    setIsProcessing(true);
-    try {
-      const updatedEntries = entries.map((entry) => {
-        const originalText = entry.messageText ? String(entry.messageText) : '';
-        const parts = originalText.split(':');
-        const secondPart = parts[1] || '';
+        // C. Fetch CT Flag
+        const partsForCT = originalText.split(':');
+        const secondPart = partsForCT[1] || '';
         const subParts = secondPart.split('_');
         let ctFlagValue = subParts[3] ? subParts[3].trim() : '';
-
         const EXCLUDED_CT_FLAGS = ['DE', 'DC', 'IT', 'MTK'];
         if (EXCLUDED_CT_FLAGS.includes(ctFlagValue)) {
           ctFlagValue = '';
@@ -427,6 +355,10 @@ function MainSheetPage() {
 
         return {
           ...entry,
+          messageText2,
+          mode,
+          digipinL6,
+          plantName,
           ctFlag: ctFlagValue,
         };
       });
@@ -434,8 +366,10 @@ function MainSheetPage() {
       await storageService.bulkReplace(COLLECTION, updatedEntries);
       await upsertSnapshot(updatedEntries);
       setEntries(updatedEntries);
+      alert('Successfully processed data and generated failure shipment report!');
     } catch (e) {
       console.error(e);
+      alert('Failed to generate failure shipment report.');
     } finally {
       setIsProcessing(false);
     }
@@ -453,46 +387,9 @@ function MainSheetPage() {
         )}
         {entries.length > 0 && (
           <>
-            <div className="dropdown-wrapper" ref={dropdownRef}>
-              <ToolbarButton variant="default" icon={SettingsIcon} onClick={() => setShowActionsDropdown(!showActionsDropdown)}>
-                Actions
-                {ChevronDownIcon}
-              </ToolbarButton>
-              {showActionsDropdown && (
-                <div className="dropdown-menu">
-                  <button
-                    className="dropdown-item"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      handleSplitMessageText();
-                    }}
-                  >
-                    {MagicIcon}
-                    <span>Split Message Text (:)</span>
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      handlePlantLookup();
-                    }}
-                  >
-                    {DatabaseIcon}
-                    <span>Lookup Plant Info</span>
-                  </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      handleFetchCTFlag();
-                    }}
-                  >
-                    {MagicIcon}
-                    <span>Fetch CT Flag</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            <ToolbarButton variant="primary" icon={MagicIcon} onClick={handleGenerateFailureReport} disabled={isProcessing}>
+              {isProcessing ? 'Processing...' : 'Generate Report'}
+            </ToolbarButton>
             <ToolbarButton variant="ghost" onClick={handleClearData}>
               Clear all
             </ToolbarButton>
@@ -560,49 +457,6 @@ function MainSheetPage() {
               This will <strong>replace</strong> all existing main sheet data
             </li>
           </ul>
-        </div>
-
-        {/* Expected format preview */}
-        <div className="preview-section" style={{ maxHeight: '200px', overflow: 'auto' }}>
-          <div className="preview-section__title">Expected Format (Partial Preview)</div>
-          <table className="preview-table">
-            <thead>
-              <tr>
-                <th>
-                  Delivery <span className="preview-table__required">Req</span>
-                </th>
-                <th>
-                  Item <span className="preview-table__required">Req</span>
-                </th>
-                <th>
-                  Billing Document <span className="preview-table__required">Req</span>
-                </th>
-                <th>
-                  Item <span className="preview-table__required">Req</span>
-                </th>
-                <th>
-                  Created on <span className="preview-table__required">Req</span>
-                </th>
-                <th>
-                  Created by <span className="preview-table__required">Req</span>
-                </th>
-                <th>
-                  Act. Gds Mvmnt Date <span className="preview-table__required">Req</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>80092812</td>
-                <td>10</td>
-                <td>90028127</td>
-                <td>10</td>
-                <td>2026-06-01</td>
-                <td>SYSTEM_GEN</td>
-                <td>2026-06-02</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
 
         {/* Date Selection */}
