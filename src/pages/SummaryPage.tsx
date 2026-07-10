@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
-import { storageService } from "../services/storage";
-import type { MainSheetEntry } from "../types/mainSheet";
-import { Sheet } from "../components/Sheet";
+import { useState, useEffect, useMemo } from 'react';
+import { storageService } from '../services/storage';
+import type { MainSheetEntry } from '../types/mainSheet';
+import { Sheet } from '../components/Sheet';
 
 interface CategorySummary {
   name: string;
@@ -21,7 +21,7 @@ export default function SummaryPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await storageService.getAll<MainSheetEntry>("main_sheet");
+      const data = await storageService.getAll<MainSheetEntry>('main_sheet');
       setEntries(data);
       setLoading(false);
     }
@@ -33,28 +33,44 @@ export default function SummaryPage() {
 
     const categories = [
       {
-        name: "GJ secondary",
+        name: 'GJ secondary',
         filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || "";
-          const region = e.shipToRegion?.trim().toUpperCase() || "";
-          return mode === "secondary" && (region === "DN" || region === "GJ");
+          const mode = e.mode?.trim().toLowerCase() || '';
+          const region = e.shipToRegion?.trim().toUpperCase() || '';
+          return mode === 'secondary' && (region === 'DN' || region === 'GJ');
         },
       },
       {
-        name: "GJ Primary",
+        name: 'GJ Primary',
         filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || "";
-          const region = e.shipToRegion?.trim().toUpperCase() || "";
-          const hasCt = e.ctFlag && e.ctFlag.trim() !== "";
-          return mode === "primary" && (region === "DN" || region === "GJ") && !hasCt;
+          const mode = e.mode?.trim().toLowerCase() || '';
+          const region = e.shipToRegion?.trim().toUpperCase() || '';
+          const hasCt = e.ctFlag && e.ctFlag.trim() !== '';
+          return mode === 'primary' && (region === 'DN' || region === 'GJ') && !hasCt;
         },
       },
       {
-        name: "DL Secondary",
+        name: 'DL Secondary',
         filter: (e: MainSheetEntry) => {
-          const mode = e.mode?.trim().toLowerCase() || "";
-          const region = e.shipToRegion?.trim().toUpperCase() || "";
-          return mode === "secondary" && region === "DL";
+          const mode = e.mode?.trim().toLowerCase() || '';
+          const region = e.shipToRegion?.trim().toUpperCase() || '';
+          return mode === 'secondary' && region === 'DL';
+        },
+      },
+      {
+        name: 'KA Secondary',
+        filter: (e: MainSheetEntry) => {
+          const mode = e.mode?.trim().toLowerCase() || '';
+          const region = e.shipToRegion?.trim().toUpperCase() || '';
+          return mode === 'secondary' && region === 'KA';
+        },
+      },
+      {
+        name: 'GA Secondary',
+        filter: (e: MainSheetEntry) => {
+          const mode = e.mode?.trim().toLowerCase() || '';
+          const region = e.shipToRegion?.trim().toUpperCase() || '';
+          return mode === 'secondary' && region === 'GA';
         },
       },
     ];
@@ -74,16 +90,16 @@ export default function SummaryPage() {
         totalShipments += 1;
         totalVolume += parseFloat(e.billedQty) || 0;
 
-        const msg2 = e.messageText2?.toLowerCase().trim() || "";
-        const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || "";
+        const msg2 = e.messageText2?.toLowerCase().trim() || '';
+        const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || '';
 
-        const isCustomerNotFound = msgRaw.includes("customer not found");
-        const isFreightSlab = msgRaw.includes("secondary freight lookup not found");
-        const isTruckNotFound = msgRaw.includes("truck details not found");
-        const isFreightNotFound = msgRaw.includes("primary freight lookup not found") || msgRaw.includes("freight not found");
+        const isCustomerNotFound = msgRaw.includes('customer not found');
+        const isFreightSlab = msgRaw.includes('secondary freight lookup not found');
+        const isTruckNotFound = msgRaw.includes('truck details not found');
+        const isFreightNotFound = msgRaw.includes('primary freight lookup not found') || msgRaw.includes('freight not found');
 
         let isFailure = false;
-        if (cat.name === "GJ secondary" || cat.name === "DL Secondary") {
+        if (cat.name.toLowerCase().includes('secondary')) {
           isFailure = isCustomerNotFound || isFreightSlab;
         } else {
           isFailure = isCustomerNotFound || isTruckNotFound || isFreightNotFound;
@@ -91,7 +107,7 @@ export default function SummaryPage() {
 
         if (isFailure) {
           failureCount += 1;
-          if (e.aopReceivedFlag?.trim().toUpperCase() === "X") {
+          if (e.aopReceivedFlag?.trim().toUpperCase() === 'X') {
             resolvedCount += 1;
           }
         }
@@ -154,7 +170,7 @@ export default function SummaryPage() {
 
   return (
     <Sheet>
-      <div className="pivot-report" style={{ padding: "20px" }}>
+      <div className="pivot-report" style={{ padding: '20px' }}>
         <h2 className="pivot-table__title">Executive Failure Summary</h2>
 
         <table className="pivot-table">
@@ -171,7 +187,7 @@ export default function SummaryPage() {
           <tbody>
             {summaries.map((s) => (
               <tr key={s.name}>
-                <td style={{ fontWeight: "bold" }}>{s.name}</td>
+                <td style={{ fontWeight: 'bold' }}>{s.name}</td>
                 <td className="num-col">{s.totalShipments.toLocaleString()}</td>
                 <td className="num-col">{Math.round(s.totalVolume).toLocaleString()}</td>
                 <td className="num-col">{s.failureRate.toFixed(1)}%</td>

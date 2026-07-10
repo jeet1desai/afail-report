@@ -47,4 +47,3 @@ export type { ColumnDef } from './DataSheet';
 export { SheetEmptyState } from './SheetEmptyState';
 export { SearchInput, CellBadge, CellLink, ToolbarButton } from './SheetParts';
 export { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from './SheetTable';
-

@@ -33,9 +33,7 @@ export function SheetToolbar({ viewName, count, leftContent, children }: SheetTo
         </div>
         {leftContent}
       </div>
-      <div className="sheet-toolbar__right">
-        {children}
-      </div>
+      <div className="sheet-toolbar__right">{children}</div>
     </div>
   );
 }

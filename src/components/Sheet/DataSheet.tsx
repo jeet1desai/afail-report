@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from "./SheetTable";
+import React, { useState, useEffect, useRef } from 'react';
+import { Table, TableHead, TableBody, TableRow, TableCell, TableHeaderCell } from './SheetTable';
 
 /* ===== Column Definition ===== */
 export interface ColumnDef<T> {
@@ -59,9 +59,15 @@ export function DataSheet<T extends { id: string }>({
   emptyState,
   onCellChange,
 }: DataSheetProps<T>) {
-  const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
-  const [editingCell, setEditingCell] = useState<{ rowIndex: number; colIndex: number } | null>(null);
-  const [editValue, setEditValue] = useState<string>("");
+  const [selectedCell, setSelectedCell] = useState<{
+    rowIndex: number;
+    colIndex: number;
+  } | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    rowIndex: number;
+    colIndex: number;
+  } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
 
   // Virtualization state
   const [scrollTop, setScrollTop] = useState(0);
@@ -76,11 +82,14 @@ export function DataSheet<T extends { id: string }>({
 
   // Filter & Sort state
   const [filters, setFilters] = useState<Record<string, Set<string>>>({});
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
   const [activeFilterKey, setActiveFilterKey] = useState<string | null>(null);
-  const [filterSearch, setFilterSearch] = useState<string>("");
+  const [filterSearch, setFilterSearch] = useState<string>('');
   const [tempChecked, setTempChecked] = useState<Set<string>>(new Set());
-  
+
   const filterPopoverRef = useRef<HTMLDivElement>(null);
 
   // Close filter popover on click outside
@@ -90,9 +99,9 @@ export function DataSheet<T extends { id: string }>({
         setActiveFilterKey(null);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
@@ -102,7 +111,7 @@ export function DataSheet<T extends { id: string }>({
     for (const [colKey, activeSet] of Object.entries(filters)) {
       if (activeSet && activeSet.size > 0) {
         filtered = filtered.filter((row) => {
-          const val = String((row as Record<string, unknown>)[colKey] ?? "");
+          const val = String((row as Record<string, unknown>)[colKey] ?? '');
           return activeSet.has(val);
         });
       }
@@ -110,17 +119,15 @@ export function DataSheet<T extends { id: string }>({
 
     if (sortConfig) {
       return [...filtered].sort((a, b) => {
-        const valA = String((a as Record<string, unknown>)[sortConfig.key] ?? "");
-        const valB = String((b as Record<string, unknown>)[sortConfig.key] ?? "");
-        
+        const valA = String((a as Record<string, unknown>)[sortConfig.key] ?? '');
+        const valB = String((b as Record<string, unknown>)[sortConfig.key] ?? '');
+
         const numA = parseFloat(valA);
         const numB = parseFloat(valB);
         if (!isNaN(numA) && !isNaN(numB)) {
-          return sortConfig.direction === "asc" ? numA - numB : numB - numA;
+          return sortConfig.direction === 'asc' ? numA - numB : numB - numA;
         }
-        return sortConfig.direction === "asc"
-          ? valA.localeCompare(valB)
-          : valB.localeCompare(valA);
+        return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
       });
     }
     return filtered;
@@ -218,7 +225,7 @@ export function DataSheet<T extends { id: string }>({
       setEditingCell({ rowIndex, colIndex });
       const row = processedData[rowIndex];
       const col = columns[colIndex];
-      setEditValue(String((row as Record<string, unknown>)[col.key] ?? ""));
+      setEditValue(String((row as Record<string, unknown>)[col.key] ?? ''));
     } else {
       setSelectedCell({ rowIndex, colIndex });
       setEditingCell(null);
@@ -230,34 +237,43 @@ export function DataSheet<T extends { id: string }>({
     setEditingCell({ rowIndex, colIndex });
     const row = processedData[rowIndex];
     const col = columns[colIndex];
-    setEditValue(String((row as Record<string, unknown>)[col.key] ?? ""));
+    setEditValue(String((row as Record<string, unknown>)[col.key] ?? ''));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     // 1. Handlers when in Edit Mode
     if (editingCell) {
-      if (e.key === "Enter") {
+      if (e.key === 'Enter') {
         e.preventDefault();
         saveEdit(editingCell.rowIndex, editingCell.colIndex, editValue);
         setEditingCell(null);
         // Move focus down
         const nextRowIndex = Math.min(processedData.length - 1, editingCell.rowIndex + 1);
-        setSelectedCell({ rowIndex: nextRowIndex, colIndex: editingCell.colIndex });
+        setSelectedCell({
+          rowIndex: nextRowIndex,
+          colIndex: editingCell.colIndex,
+        });
         tableContainerRef.current?.focus();
-      } else if (e.key === "Escape") {
+      } else if (e.key === 'Escape') {
         e.preventDefault();
         handleEscape();
-      } else if (e.key === "Tab") {
+      } else if (e.key === 'Tab') {
         e.preventDefault();
         saveEdit(editingCell.rowIndex, editingCell.colIndex, editValue);
         setEditingCell(null);
         // Move selection right/left
         if (e.shiftKey) {
           const nextColIndex = Math.max(0, editingCell.colIndex - 1);
-          setSelectedCell({ rowIndex: editingCell.rowIndex, colIndex: nextColIndex });
+          setSelectedCell({
+            rowIndex: editingCell.rowIndex,
+            colIndex: nextColIndex,
+          });
         } else {
           const nextColIndex = Math.min(columns.length - 1, editingCell.colIndex + 1);
-          setSelectedCell({ rowIndex: editingCell.rowIndex, colIndex: nextColIndex });
+          setSelectedCell({
+            rowIndex: editingCell.rowIndex,
+            colIndex: nextColIndex,
+          });
         }
         tableContainerRef.current?.focus();
       }
@@ -266,7 +282,7 @@ export function DataSheet<T extends { id: string }>({
 
     // 2. Handlers when in View Mode (Selection only)
     if (!selectedCell) {
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
         setSelectedCell({ rowIndex: 0, colIndex: 0 });
       }
@@ -275,34 +291,43 @@ export function DataSheet<T extends { id: string }>({
 
     const { rowIndex, colIndex } = selectedCell;
 
-    if (e.key === "ArrowUp") {
+    if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedCell({ rowIndex: Math.max(0, rowIndex - 1), colIndex });
-    } else if (e.key === "ArrowDown") {
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedCell({ rowIndex: Math.min(processedData.length - 1, rowIndex + 1), colIndex });
-    } else if (e.key === "ArrowLeft") {
+      setSelectedCell({
+        rowIndex: Math.min(processedData.length - 1, rowIndex + 1),
+        colIndex,
+      });
+    } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setSelectedCell({ rowIndex, colIndex: Math.max(0, colIndex - 1) });
-    } else if (e.key === "ArrowRight") {
+    } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      setSelectedCell({ rowIndex, colIndex: Math.min(columns.length - 1, colIndex + 1) });
-    } else if (e.key === "Tab") {
+      setSelectedCell({
+        rowIndex,
+        colIndex: Math.min(columns.length - 1, colIndex + 1),
+      });
+    } else if (e.key === 'Tab') {
       e.preventDefault();
       if (e.shiftKey) {
         setSelectedCell({ rowIndex, colIndex: Math.max(0, colIndex - 1) });
       } else {
-        setSelectedCell({ rowIndex, colIndex: Math.min(columns.length - 1, colIndex + 1) });
+        setSelectedCell({
+          rowIndex,
+          colIndex: Math.min(columns.length - 1, colIndex + 1),
+        });
       }
-    } else if (e.key === "Enter") {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
       setEditingCell({ rowIndex, colIndex });
       const row = processedData[rowIndex];
       const col = columns[colIndex];
-      setEditValue(String((row as Record<string, unknown>)[col.key] ?? ""));
-    } else if (e.key === "Backspace" || e.key === "Delete") {
+      setEditValue(String((row as Record<string, unknown>)[col.key] ?? ''));
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
-      saveEdit(rowIndex, colIndex, "");
+      saveEdit(rowIndex, colIndex, '');
     } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
       // Excel-style quick edit (typing a character starts edit mode with that character)
       e.preventDefault();
@@ -313,7 +338,7 @@ export function DataSheet<T extends { id: string }>({
   // Cache unique values of the active column to avoid recalculating on typing search or scroll
   const activeColUniqueValues = React.useMemo(() => {
     if (!activeFilterKey) return [];
-    const allUnique = Array.from(new Set(data.map((row) => String((row as Record<string, unknown>)[activeFilterKey] ?? ""))));
+    const allUnique = Array.from(new Set(data.map((row) => String((row as Record<string, unknown>)[activeFilterKey] ?? ''))));
     allUnique.sort((a, b) => {
       const numA = parseFloat(a);
       const numB = parseFloat(b);
@@ -328,14 +353,14 @@ export function DataSheet<T extends { id: string }>({
       setActiveFilterKey(null);
       return;
     }
-    const allUnique = Array.from(new Set(data.map((row) => String((row as Record<string, unknown>)[colKey] ?? ""))));
+    const allUnique = Array.from(new Set(data.map((row) => String((row as Record<string, unknown>)[colKey] ?? ''))));
     const activeFilter = filters[colKey];
     if (activeFilter && activeFilter.size > 0) {
       setTempChecked(new Set(activeFilter));
     } else {
       setTempChecked(new Set(allUnique));
     }
-    setFilterSearch("");
+    setFilterSearch('');
     setActiveFilterKey(colKey);
   };
 
@@ -377,258 +402,272 @@ export function DataSheet<T extends { id: string }>({
   return (
     <>
       {Object.keys(filters).length > 0 && (
-        <div style={{
-          background: "var(--accent-blue-light)",
-          padding: "8px 16px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderBottom: "1px solid var(--border-color)",
-          flexShrink: 0
-        }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--accent-blue)", fontWeight: 500 }}>
+        <div
+          style={{
+            background: 'var(--accent-blue-light)',
+            padding: '8px 16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid var(--border-color)',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.85rem',
+              color: 'var(--accent-blue)',
+              fontWeight: 500,
+            }}
+          >
             {Object.keys(filters).length} active filter(s) applied
           </span>
-          <button 
-            className="btn btn--secondary btn--sm" 
+          <button
+            className="btn btn--secondary btn--sm"
             onClick={() => {
               setFilters({});
               setActiveFilterKey(null);
             }}
-            style={{ background: "#fff" }}
+            style={{ background: '#fff' }}
           >
             Clear All Filters
           </button>
         </div>
       )}
-      <div
-        className="sheet"
-        ref={tableContainerRef}
-        tabIndex={0}
-        onKeyDown={handleKeyDown}
-        onScroll={handleScroll}
-        style={{ outline: "none", position: "relative" }}
-      >
-        <Table style={{ width: "max-content", minWidth: "100%" }}>
-        <TableHead>
-          <TableRow>
-            {showCheckboxes && (
-              <th className="col-checkbox">
-                <input type="checkbox" checked={selectedRows.size === processedData.length && processedData.length > 0} onChange={toggleSelectAll} />
-              </th>
-            )}
-            {showRowNumbers && <th className="col-rownum">#</th>}
-            {columns.map((col) => {
-              const isFilterActive = filters[col.key] && filters[col.key].size > 0;
-              const isSortedActive = sortConfig?.key === col.key;
-              const isMenuOpen = activeFilterKey === col.key;
-              const visibleVals = isMenuOpen ? getVisibleUniqueValues() : [];
+      <div className="sheet" ref={tableContainerRef} tabIndex={0} onKeyDown={handleKeyDown} onScroll={handleScroll} style={{ outline: 'none', position: 'relative' }}>
+        <Table style={{ width: 'max-content', minWidth: '100%' }}>
+          <TableHead>
+            <TableRow>
+              {showCheckboxes && (
+                <th className="col-checkbox">
+                  <input type="checkbox" checked={selectedRows.size === processedData.length && processedData.length > 0} onChange={toggleSelectAll} />
+                </th>
+              )}
+              {showRowNumbers && <th className="col-rownum">#</th>}
+              {columns.map((col) => {
+                const isFilterActive = filters[col.key] && filters[col.key].size > 0;
+                const isSortedActive = sortConfig?.key === col.key;
+                const isMenuOpen = activeFilterKey === col.key;
+                const visibleVals = isMenuOpen ? getVisibleUniqueValues() : [];
 
-              return (
-                <TableHeaderCell
-                  key={col.key}
-                  icon={col.icon}
-                  style={col.width ? { width: col.width } : undefined}
-                >
-                  <span className="th-content">
-                    <span style={{ marginRight: "12px" }}>{col.label}</span>
-                    
-                    {/* Filter Trigger Button */}
-                    <button
-                      className={`th-filter-btn ${isFilterActive || isSortedActive || isMenuOpen ? 'th-filter-btn--active' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFilterMenu(col.key);
-                      }}
-                      title="Filter / Sort"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </button>
-                  </span>
-                  
-                  {/* Excel Filter Popover Overlay */}
-                  {isMenuOpen && (
-                    <div className="filter-popover" ref={filterPopoverRef} onClick={(e) => e.stopPropagation()}>
-                      {/* Sort Section */}
-                      <div className="filter-popover__sort-section">
-                        <button
-                          className="filter-popover__sort-btn"
-                          onClick={() => {
-                            setSortConfig({ key: col.key, direction: "asc" });
-                            setActiveFilterKey(null);
-                          }}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <polyline points="19 12 12 19 5 12" />
-                          </svg>
-                          Sort A to Z (Asc)
-                        </button>
-                        <button
-                          className="filter-popover__sort-btn"
-                          onClick={() => {
-                            setSortConfig({ key: col.key, direction: "desc" });
-                            setActiveFilterKey(null);
-                          }}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
-                            <line x1="12" y1="19" x2="12" y2="5" />
-                            <polyline points="5 12 12 5 19 12" />
-                          </svg>
-                          Sort Z to A (Desc)
-                        </button>
-                        {isSortedActive && (
+                return (
+                  <TableHeaderCell key={col.key} icon={col.icon} style={col.width ? { width: col.width } : undefined}>
+                    <span className="th-content">
+                      <span style={{ marginRight: '12px' }}>{col.label}</span>
+
+                      {/* Filter Trigger Button */}
+                      <button
+                        className={`th-filter-btn ${isFilterActive || isSortedActive || isMenuOpen ? 'th-filter-btn--active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFilterMenu(col.key);
+                        }}
+                        title="Filter / Sort"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+                    </span>
+
+                    {/* Excel Filter Popover Overlay */}
+                    {isMenuOpen && (
+                      <div className="filter-popover" ref={filterPopoverRef} onClick={(e) => e.stopPropagation()}>
+                        {/* Sort Section */}
+                        <div className="filter-popover__sort-section">
                           <button
                             className="filter-popover__sort-btn"
-                            style={{ color: "var(--accent-red)", fontWeight: 500 }}
                             onClick={() => {
-                              setSortConfig(null);
+                              setSortConfig({ key: col.key, direction: 'asc' });
                               setActiveFilterKey(null);
                             }}
                           >
-                            Clear Sort
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
+                              <line x1="12" y1="5" x2="12" y2="19" />
+                              <polyline points="19 12 12 19 5 12" />
+                            </svg>
+                            Sort A to Z (Asc)
                           </button>
-                        )}
-                        {isFilterActive && (
                           <button
                             className="filter-popover__sort-btn"
-                            style={{ color: "var(--accent-red)", fontWeight: 500 }}
                             onClick={() => {
-                              const nextFilters = { ...filters };
-                              delete nextFilters[col.key];
-                              setFilters(nextFilters);
+                              setSortConfig({
+                                key: col.key,
+                                direction: 'desc',
+                              });
                               setActiveFilterKey(null);
                             }}
                           >
-                            Clear Filter
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12 }}>
+                              <line x1="12" y1="19" x2="12" y2="5" />
+                              <polyline points="5 12 12 5 19 12" />
+                            </svg>
+                            Sort Z to A (Desc)
                           </button>
-                        )}
-                      </div>
-                      
-                      {/* Search box */}
-                      <div className="filter-popover__search">
-                        <input
-                          type="text"
-                          placeholder="Search unique values..."
-                          value={filterSearch}
-                          onChange={(e) => setFilterSearch(e.target.value)}
-                        />
-                      </div>
-                      
-                      {/* Scrollable list of checkboxes */}
-                      <div className="filter-popover__list">
-                        <label className="filter-popover__item">
-                          <input
-                            type="checkbox"
-                            checked={visibleVals.length > 0 && visibleVals.every(v => tempChecked.has(v))}
-                            onChange={(e) => {
-                              const nextTemp = new Set(tempChecked);
-                              if (e.target.checked) {
-                                visibleVals.forEach(v => nextTemp.add(v));
-                              } else {
-                                visibleVals.forEach(v => nextTemp.delete(v));
-                              }
-                              setTempChecked(nextTemp);
-                            }}
-                          />
-                          <span style={{ fontWeight: 600 }}>Select All</span>
-                        </label>
-                        
-                        {visibleVals.map((val) => (
-                          <label key={val} className="filter-popover__item" title={val || "(Blank)"}>
+                          {isSortedActive && (
+                            <button
+                              className="filter-popover__sort-btn"
+                              style={{
+                                color: 'var(--accent-red)',
+                                fontWeight: 500,
+                              }}
+                              onClick={() => {
+                                setSortConfig(null);
+                                setActiveFilterKey(null);
+                              }}
+                            >
+                              Clear Sort
+                            </button>
+                          )}
+                          {isFilterActive && (
+                            <button
+                              className="filter-popover__sort-btn"
+                              style={{
+                                color: 'var(--accent-red)',
+                                fontWeight: 500,
+                              }}
+                              onClick={() => {
+                                const nextFilters = { ...filters };
+                                delete nextFilters[col.key];
+                                setFilters(nextFilters);
+                                setActiveFilterKey(null);
+                              }}
+                            >
+                              Clear Filter
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Search box */}
+                        <div className="filter-popover__search">
+                          <input type="text" placeholder="Search unique values..." value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} />
+                        </div>
+
+                        {/* Scrollable list of checkboxes */}
+                        <div className="filter-popover__list">
+                          <label className="filter-popover__item">
                             <input
                               type="checkbox"
-                              checked={tempChecked.has(val)}
-                              onChange={() => {
+                              checked={visibleVals.length > 0 && visibleVals.every((v) => tempChecked.has(v))}
+                              onChange={(e) => {
                                 const nextTemp = new Set(tempChecked);
-                                if (nextTemp.has(val)) {
-                                  nextTemp.delete(val);
+                                if (e.target.checked) {
+                                  visibleVals.forEach((v) => nextTemp.add(v));
                                 } else {
-                                  nextTemp.add(val);
+                                  visibleVals.forEach((v) => nextTemp.delete(v));
                                 }
                                 setTempChecked(nextTemp);
                               }}
                             />
-                            <span>{val || "(Blank)"}</span>
+                            <span style={{ fontWeight: 600 }}>Select All</span>
                           </label>
-                        ))}
+
+                          {visibleVals.map((val) => (
+                            <label key={val} className="filter-popover__item" title={val || '(Blank)'}>
+                              <input
+                                type="checkbox"
+                                checked={tempChecked.has(val)}
+                                onChange={() => {
+                                  const nextTemp = new Set(tempChecked);
+                                  if (nextTemp.has(val)) {
+                                    nextTemp.delete(val);
+                                  } else {
+                                    nextTemp.add(val);
+                                  }
+                                  setTempChecked(nextTemp);
+                                }}
+                              />
+                              <span>{val || '(Blank)'}</span>
+                            </label>
+                          ))}
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="filter-popover__footer">
+                          <button className="btn btn--secondary btn--sm" onClick={() => setActiveFilterKey(null)}>
+                            Cancel
+                          </button>
+                          <button
+                            className="btn btn--primary btn--sm"
+                            onClick={() => {
+                              applyColumnFilter(col.key);
+                            }}
+                          >
+                            OK
+                          </button>
+                        </div>
                       </div>
-                      
-                      {/* Footer Actions */}
-                      <div className="filter-popover__footer">
-                        <button
-                          className="btn btn--secondary btn--sm"
-                          onClick={() => setActiveFilterKey(null)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          className="btn btn--primary btn--sm"
-                          onClick={() => {
-                            applyColumnFilter(col.key);
-                          }}
-                        >
-                          OK
-                        </button>
-                      </div>
-                    </div>
+                    )}
+                  </TableHeaderCell>
+                );
+              })}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {topSpacerHeight > 0 && (
+              <tr style={{ height: `${topSpacerHeight}px` }}>
+                <td
+                  colSpan={totalCols}
+                  style={{
+                    padding: 0,
+                    height: `${topSpacerHeight}px`,
+                    border: 'none',
+                    background: 'transparent',
+                  }}
+                />
+              </tr>
+            )}
+            {visibleData.map((row, relativeIndex) => {
+              const index = startIndex + relativeIndex;
+              const isRowSelected = selectedRows.has(row.id);
+              return (
+                <TableRow key={row.id} isSelected={isRowSelected}>
+                  {showCheckboxes && (
+                    <td className="col-checkbox">
+                      <input type="checkbox" checked={isRowSelected} onChange={() => toggleRow(row.id)} />
+                    </td>
                   )}
-                </TableHeaderCell>
+                  {showRowNumbers && <td className="col-rownum">{index + 1}</td>}
+                  {columns.map((col, colIndex) => {
+                    const isCellSelected = selectedCell?.rowIndex === index && selectedCell?.colIndex === colIndex;
+                    const isCellEditing = editingCell?.rowIndex === index && editingCell?.colIndex === colIndex;
+
+                    return (
+                      <TableCell
+                        key={col.key}
+                        isSelected={isCellSelected}
+                        isEditing={isCellEditing}
+                        onClick={() => handleCellClick(index, colIndex)}
+                        onDoubleClick={() => handleCellDoubleClick(index, colIndex)}
+                      >
+                        {isCellEditing ? (
+                          <input ref={inputRef} value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleBlur} />
+                        ) : col.render ? (
+                          col.render(row, index)
+                        ) : (
+                          String((row as Record<string, unknown>)[col.key] ?? '')
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
               );
             })}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {topSpacerHeight > 0 && (
-            <tr style={{ height: `${topSpacerHeight}px` }}>
-              <td colSpan={totalCols} style={{ padding: 0, height: `${topSpacerHeight}px`, border: "none", background: "transparent" }} />
-            </tr>
-          )}
-          {visibleData.map((row, relativeIndex) => {
-            const index = startIndex + relativeIndex;
-            const isRowSelected = selectedRows.has(row.id);
-            return (
-              <TableRow key={row.id} isSelected={isRowSelected}>
-                {showCheckboxes && (
-                  <td className="col-checkbox">
-                    <input type="checkbox" checked={isRowSelected} onChange={() => toggleRow(row.id)} />
-                  </td>
-                )}
-                {showRowNumbers && <td className="col-rownum">{index + 1}</td>}
-                {columns.map((col, colIndex) => {
-                  const isCellSelected = selectedCell?.rowIndex === index && selectedCell?.colIndex === colIndex;
-                  const isCellEditing = editingCell?.rowIndex === index && editingCell?.colIndex === colIndex;
-
-                  return (
-                    <TableCell
-                      key={col.key}
-                      isSelected={isCellSelected}
-                      isEditing={isCellEditing}
-                      onClick={() => handleCellClick(index, colIndex)}
-                      onDoubleClick={() => handleCellDoubleClick(index, colIndex)}
-                    >
-                      {isCellEditing ? (
-                        <input ref={inputRef} value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleBlur} />
-                      ) : col.render ? (
-                        col.render(row, index)
-                      ) : (
-                        String((row as Record<string, unknown>)[col.key] ?? "")
-                      )}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            );
-          })}
-          {bottomSpacerHeight > 0 && (
-            <tr style={{ height: `${bottomSpacerHeight}px` }}>
-              <td colSpan={totalCols} style={{ padding: 0, height: `${bottomSpacerHeight}px`, border: "none", background: "transparent" }} />
-            </tr>
-          )}
-        </TableBody>
-      </Table>
+            {bottomSpacerHeight > 0 && (
+              <tr style={{ height: `${bottomSpacerHeight}px` }}>
+                <td
+                  colSpan={totalCols}
+                  style={{
+                    padding: 0,
+                    height: `${bottomSpacerHeight}px`,
+                    border: 'none',
+                    background: 'transparent',
+                  }}
+                />
+              </tr>
+            )}
+          </TableBody>
+        </Table>
       </div>
     </>
   );

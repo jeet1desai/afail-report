@@ -17,13 +17,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search...' }: Sear
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
-      <input
-        type="text"
-        className="search-input"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <input type="text" className="search-input" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
@@ -80,26 +74,12 @@ interface ToolbarButtonProps {
 /**
  * ToolbarButton — Button styled for use in the SheetToolbar.
  */
-export function ToolbarButton({
-  icon,
-  children,
-  onClick,
-  variant = 'default',
-  size = 'sm',
-  disabled = false,
-  id,
-}: ToolbarButtonProps) {
+export function ToolbarButton({ icon, children, onClick, variant = 'default', size = 'sm', disabled = false, id }: ToolbarButtonProps) {
   const variantClass = variant === 'default' ? 'sheet-toolbar__btn' : `btn btn--${variant}`;
   const sizeClass = size === 'sm' ? 'btn--sm' : '';
 
   return (
-    <button
-      className={`${variantClass} ${sizeClass}`.trim()}
-      onClick={onClick}
-      disabled={disabled}
-      style={disabled ? { opacity: 0.5, pointerEvents: 'none' } : undefined}
-      id={id}
-    >
+    <button className={`${variantClass} ${sizeClass}`.trim()} onClick={onClick} disabled={disabled} style={disabled ? { opacity: 0.5, pointerEvents: 'none' } : undefined} id={id}>
       {icon}
       {children}
     </button>

@@ -1,4 +1,4 @@
-import type { MainSheetEntry } from "../types/mainSheet";
+import type { MainSheetEntry } from '../types/mainSheet';
 
 export interface ReportRow {
   date: string;
@@ -20,6 +20,8 @@ export interface ReportSnapshot {
   tabs: {
     Secondary: ReportRow[];
     DLSecondary: ReportRow[];
+    KASecondary: ReportRow[];
+    GASecondary: ReportRow[];
     Sanghi: ReportRow[];
     Dahej: ReportRow[];
     Surat: ReportRow[];
@@ -28,7 +30,7 @@ export interface ReportSnapshot {
 }
 
 function formatDateWithSuffix(dateStr: string) {
-  const parts = dateStr.split("-");
+  const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
 
   const y = parseInt(parts[0], 10);
@@ -38,58 +40,70 @@ function formatDateWithSuffix(dateStr: string) {
   if (isNaN(y) || isNaN(mIndex) || isNaN(d)) return dateStr;
 
   const dateObj = new Date(y, mIndex, d);
-  const m = new Intl.DateTimeFormat("en-GB", { month: "long" }).format(dateObj);
+  const m = new Intl.DateTimeFormat('en-GB', { month: 'long' }).format(dateObj);
 
-  let suffix = "th";
-  if (d % 10 === 1 && d !== 11) suffix = "st";
-  if (d % 10 === 2 && d !== 12) suffix = "nd";
-  if (d % 10 === 3 && d !== 13) suffix = "rd";
+  let suffix = 'th';
+  if (d % 10 === 1 && d !== 11) suffix = 'st';
+  if (d % 10 === 2 && d !== 12) suffix = 'nd';
+  if (d % 10 === 3 && d !== 13) suffix = 'rd';
 
   return `${d}${suffix} ${m} ${y}`;
 }
 
 export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string): ReportSnapshot {
-  const tabs = ["Secondary", "DLSecondary", "Sanghi", "Dahej", "Surat", "SOW"] as const;
+  const tabs = ['Secondary', 'DLSecondary', 'KASecondary', 'GASecondary', 'Sanghi', 'Dahej', 'Surat', 'SOW'] as const;
   type TabName = (typeof tabs)[number];
 
   const resultTabs: Record<TabName, ReportRow[]> = {
     Secondary: [],
     DLSecondary: [],
+    KASecondary: [],
+    GASecondary: [],
     Sanghi: [],
     Dahej: [],
     Surat: [],
     SOW: [],
   };
 
-  const primaryTabs = ["Sanghi", "Dahej", "Surat", "SOW"];
+  const primaryTabs = ['Sanghi', 'Dahej', 'Surat', 'SOW'];
 
   for (const activeTab of tabs) {
     const filtered = entries.filter((e) => {
-      const mode = e.mode?.trim().toLowerCase() || "";
-      const region = e.shipToRegion?.trim().toUpperCase() || "";
+      const mode = e.mode?.trim().toLowerCase() || '';
+      const region = e.shipToRegion?.trim().toUpperCase() || '';
 
-      if (activeTab === "Secondary") {
-        if (mode !== "secondary") return false;
-        if (region !== "DN" && region !== "GJ") return false;
+      if (activeTab === 'Secondary') {
+        if (mode !== 'secondary') return false;
+        if (region !== 'DN' && region !== 'GJ') return false;
         return true;
       }
-      if (activeTab === "DLSecondary") {
-        if (mode !== "secondary") return false;
-        if (region !== "DL") return false;
+      if (activeTab === 'DLSecondary') {
+        if (mode !== 'secondary') return false;
+        if (region !== 'DL') return false;
+        return true;
+      }
+      if (activeTab === 'KASecondary') {
+        if (mode !== 'secondary') return false;
+        if (region !== 'KA') return false;
+        return true;
+      }
+      if (activeTab === 'GASecondary') {
+        if (mode !== 'secondary') return false;
+        if (region !== 'GA') return false;
         return true;
       }
       if (primaryTabs.includes(activeTab)) {
-        if (mode !== "primary") return false;
+        if (mode !== 'primary') return false;
 
-        const pn = e.plantName?.trim().toLowerCase() || "";
-        if (activeTab === "SOW") {
-          if (!["adalaj - sow", "moraiya - sow", "sarkhej - sow"].includes(pn)) return false;
+        const pn = e.plantName?.trim().toLowerCase() || '';
+        if (activeTab === 'SOW') {
+          if (!['adalaj - sow', 'moraiya - sow', 'sarkhej - sow'].includes(pn)) return false;
         } else {
           if (pn !== activeTab.toLowerCase()) return false;
         }
 
-        if (region !== "DN" && region !== "GJ") return false;
-        if (e.ctFlag && e.ctFlag.trim() !== "") return false;
+        if (region !== 'DN' && region !== 'GJ') return false;
+        if (e.ctFlag && e.ctFlag.trim() !== '') return false;
         return true;
       }
       return false;
@@ -109,7 +123,7 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
     > = {};
 
     for (const e of filtered) {
-      const dateStr = e.actGdsMvmntDate || "(blank)";
+      const dateStr = e.actGdsMvmntDate || '(blank)';
 
       if (!dateMap[dateStr]) {
         dateMap[dateStr] = {
@@ -126,14 +140,14 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       const hasInvoice = e.billingDocument ? 1 : 0;
       const qty = parseFloat(e.billedQty) || 0;
 
-      const msg2 = e.messageText2?.toLowerCase().trim() || "";
+      const msg2 = e.messageText2?.toLowerCase().trim() || '';
       // Fallback: if messageText2 is empty, check raw messageText directly
-      const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || "";
+      const msgRaw = msg2 || e.messageText?.toLowerCase().trim() || '';
 
-      const isCustomerNotFound = msgRaw.includes("customer not found") ? 1 : 0;
-      const isFreightSlab = msgRaw.includes("secondary freight lookup not found") ? 1 : 0;
-      const isTruckNotFound = msgRaw.includes("truck details not found") ? 1 : 0;
-      const isFreightNotFound = msgRaw.includes("primary freight lookup not found") || msgRaw.includes("freight not found") ? 1 : 0;
+      const isCustomerNotFound = msgRaw.includes('customer not found') ? 1 : 0;
+      const isFreightSlab = msgRaw.includes('secondary freight lookup not found') ? 1 : 0;
+      const isTruckNotFound = msgRaw.includes('truck details not found') ? 1 : 0;
+      const isFreightNotFound = msgRaw.includes('primary freight lookup not found') || msgRaw.includes('freight not found') ? 1 : 0;
 
       dateMap[dateStr].totalInvoices += hasInvoice;
       dateMap[dateStr].billedQty += qty;
@@ -143,18 +157,18 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       dateMap[dateStr].freightNotFound += isFreightNotFound;
 
       let isFailure = false;
-      if (activeTab === "Secondary" || activeTab === "DLSecondary") {
+      if (activeTab.toLowerCase().includes('secondary')) {
         isFailure = (isCustomerNotFound || isFreightSlab) > 0;
       } else {
         isFailure = (isCustomerNotFound || isTruckNotFound || isFreightNotFound) > 0;
       }
-      const isResolved = (isFailure && e.aopReceivedFlag?.trim().toUpperCase() === "X") ? 1 : 0;
+      const isResolved = isFailure && e.aopReceivedFlag?.trim().toUpperCase() === 'X' ? 1 : 0;
       dateMap[dateStr].resolved += isResolved;
     }
 
     const sortedDates = Object.keys(dateMap).sort((a, b) => {
-      if (a === "(blank)") return 1;
-      if (b === "(blank)") return -1;
+      if (a === '(blank)') return 1;
+      if (b === '(blank)') return -1;
       const tA = new Date(a).getTime();
       const tB = new Date(b).getTime();
       if (isNaN(tA) || isNaN(tB)) return a.localeCompare(b);
@@ -165,13 +179,13 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       const row = dateMap[date];
       let failureCount = 0;
 
-      if (activeTab === "Secondary" || activeTab === "DLSecondary") {
+      if (activeTab.toLowerCase().includes('secondary')) {
         failureCount = row.customerNotFound + row.freightSlabNotMaintained;
       } else if (primaryTabs.includes(activeTab)) {
         failureCount = row.customerNotFound + row.truckNotFound + row.freightNotFound;
       }
 
-      const formattedDate = date === "(blank)" ? date : formatDateWithSuffix(date);
+      const formattedDate = date === '(blank)' ? date : formatDateWithSuffix(date);
 
       return {
         date: formattedDate,
@@ -191,10 +205,10 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
   }
 
   const ts = new Date(dateStr).getTime();
-  const label = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+  const label = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   }).format(new Date(dateStr));
 
   return {

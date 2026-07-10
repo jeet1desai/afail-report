@@ -25,13 +25,7 @@ interface UploadZoneProps {
  * />
  * ```
  */
-export function UploadZone({
-  selectedFile,
-  onFileSelect,
-  accept = '.xlsx,.xls,.csv',
-  label = 'Click to upload or drag & drop',
-  subtitle = '.xlsx, .xls, .csv',
-}: UploadZoneProps) {
+export function UploadZone({ selectedFile, onFileSelect, accept = '.xlsx,.xls,.csv', label = 'Click to upload or drag & drop', subtitle = '.xlsx, .xls, .csv' }: UploadZoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = (e: React.DragEvent) => {
@@ -47,12 +41,7 @@ export function UploadZone({
   };
 
   return (
-    <div
-      className={`upload-zone${selectedFile ? ' upload-zone--active' : ''}`}
-      onClick={() => fileInputRef.current?.click()}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={handleDrop}
-    >
+    <div className={`upload-zone${selectedFile ? ' upload-zone--active' : ''}`} onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="upload-zone__icon">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -60,9 +49,7 @@ export function UploadZone({
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
       </div>
-      <div className="upload-zone__title">
-        {selectedFile ? 'File selected' : label}
-      </div>
+      <div className="upload-zone__title">{selectedFile ? 'File selected' : label}</div>
       <div className="upload-zone__subtitle">{subtitle}</div>
       {selectedFile && (
         <div className="upload-zone__file-info">
@@ -73,13 +60,7 @@ export function UploadZone({
           {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
         </div>
       )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden-input"
-        accept={accept}
-        onChange={handleChange}
-      />
+      <input ref={fileInputRef} type="file" className="hidden-input" accept={accept} onChange={handleChange} />
     </div>
   );
 }

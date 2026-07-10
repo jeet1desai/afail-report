@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import DashboardLayout from "./layouts/DashboardLayout";
-import Report82Page from "./pages/Report82Page";
-import PlantsPage from "./pages/PlantsPage";
-import MainSheetPage from "./pages/MainSheetPage";
-import FailureReportStatePage from "./pages/FailureReportStatePage";
-import PivotReportPage from "./pages/PivotReportPage";
-import SummaryPage from "./pages/SummaryPage";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import DashboardLayout from './layouts/DashboardLayout';
+import Report82Page from './pages/Report82Page';
+import PlantsPage from './pages/PlantsPage';
+import MainSheetPage from './pages/MainSheetPage';
+import FailureReportStatePage from './pages/FailureReportStatePage';
+import PivotReportPage from './pages/PivotReportPage';
+import SummaryPage from './pages/SummaryPage';
 
 function App() {
   return (

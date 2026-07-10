@@ -46,15 +46,9 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
           </button>
         </div>
 
-        <div className="modal__body">
-          {children}
-        </div>
+        <div className="modal__body">{children}</div>
 
-        {footer && (
-          <div className="modal__footer">
-            {footer}
-          </div>
-        )}
+        {footer && <div className="modal__footer">{footer}</div>}
       </div>
     </div>
   );

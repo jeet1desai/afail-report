@@ -1,21 +1,21 @@
-import { useState, useEffect, useCallback } from "react";
-import { storageService } from "../services/storage";
-import { parseExcelInWorker } from "../utils/excelParser";
-import { generateId } from "../utils/helpers";
-import type { Plant } from "../types/plant";
-import { Sheet, SheetToolbar, DataSheet, SheetEmptyState, SearchInput, ToolbarButton } from "../components/Sheet";
-import type { ColumnDef } from "../components/Sheet";
-import { Modal } from "../components/Modal";
-import { UploadZone } from "../components/UploadZone";
+import { useState, useEffect, useCallback } from 'react';
+import { storageService } from '../services/storage';
+import { parseExcelInWorker } from '../utils/excelParser';
+import { generateId } from '../utils/helpers';
+import type { Plant } from '../types/plant';
+import { Sheet, SheetToolbar, DataSheet, SheetEmptyState, SearchInput, ToolbarButton } from '../components/Sheet';
+import type { ColumnDef } from '../components/Sheet';
+import { Modal } from '../components/Modal';
+import { UploadZone } from '../components/UploadZone';
 
-const COLLECTION = "plants";
+const COLLECTION = 'plants';
 
 /* ===== Column Definitions ===== */
 const plantColumns: ColumnDef<Plant>[] = [
   {
-    key: "plantCode",
-    label: "Plant Code",
-    width: "15%",
+    key: 'plantCode',
+    label: 'Plant Code',
+    width: '15%',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -24,9 +24,9 @@ const plantColumns: ColumnDef<Plant>[] = [
     ),
   },
   {
-    key: "mode",
-    label: "Mode",
-    width: "10%",
+    key: 'mode',
+    label: 'Mode',
+    width: '10%',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -35,9 +35,9 @@ const plantColumns: ColumnDef<Plant>[] = [
     ),
   },
   {
-    key: "plantDigi6",
-    label: "Plant Digi6",
-    width: "15%",
+    key: 'plantDigi6',
+    label: 'Plant Digi6',
+    width: '15%',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -46,9 +46,9 @@ const plantColumns: ColumnDef<Plant>[] = [
     ),
   },
   {
-    key: "digipinPlantLocation",
-    label: "Digipin Plant Location",
-    width: "25%",
+    key: 'digipinPlantLocation',
+    label: 'Digipin Plant Location',
+    width: '25%',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -57,8 +57,8 @@ const plantColumns: ColumnDef<Plant>[] = [
     ),
   },
   {
-    key: "digipinFacility",
-    label: "Digipin Facility",
+    key: 'digipinFacility',
+    label: 'Digipin Facility',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -101,7 +101,7 @@ function PlantsPage() {
     message: string;
     errors: string[];
   } | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const loadPlants = useCallback(async () => {
@@ -147,7 +147,11 @@ function PlantsPage() {
       const result = await parseExcelInWorker<Plant>(selectedFile, 'plants');
 
       if (!result.success) {
-        setUploadResult({ success: false, message: "Failed to process the file.", errors: result.errors });
+        setUploadResult({
+          success: false,
+          message: 'Failed to process the file.',
+          errors: result.errors,
+        });
         setIsProcessing(false);
         return;
       }
@@ -171,14 +175,18 @@ function PlantsPage() {
         errors: result.skippedRows > 0 ? [`${result.skippedRows} empty row(s) skipped.`] : [],
       });
     } catch (error) {
-      setUploadResult({ success: false, message: "Failed to read the file.", errors: [String(error)] });
+      setUploadResult({
+        success: false,
+        message: 'Failed to read the file.',
+        errors: [String(error)],
+      });
     }
 
     setIsProcessing(false);
   };
 
   const handleClearData = async () => {
-    if (window.confirm("Clear all plant data?")) {
+    if (window.confirm('Clear all plant data?')) {
       await storageService.clear(COLLECTION);
       await loadPlants();
       setSelectedRows(new Set());
@@ -259,13 +267,8 @@ function PlantsPage() {
             <button className="btn btn--secondary" onClick={closeModal}>
               Cancel
             </button>
-            <button
-              className="btn btn--primary"
-              onClick={handleUpload}
-              disabled={!selectedFile || isProcessing}
-              style={{ opacity: !selectedFile || isProcessing ? 0.5 : 1 }}
-            >
-              {isProcessing ? "Processing..." : "Upload & Process"}
+            <button className="btn btn--primary" onClick={handleUpload} disabled={!selectedFile || isProcessing} style={{ opacity: !selectedFile || isProcessing ? 0.5 : 1 }}>
+              {isProcessing ? 'Processing...' : 'Upload & Process'}
             </button>
           </>
         }
@@ -273,16 +276,7 @@ function PlantsPage() {
         {/* Instructions */}
         <div className="instructions">
           <div className="instructions__title">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--accent-blue)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -292,7 +286,8 @@ function PlantsPage() {
           <ul className="instructions__list">
             <li>Upload an Excel (.xlsx, .xls) or CSV file</li>
             <li>
-              File <strong>must</strong> have columns: <strong>plant_code</strong>, <strong>mode</strong>, <strong>plant_digi6</strong>, <strong>digipin_plant_location</strong>, <strong>digipin_facility</strong>
+              File <strong>must</strong> have columns: <strong>plant_code</strong>, <strong>mode</strong>, <strong>plant_digi6</strong>, <strong>digipin_plant_location</strong>,{' '}
+              <strong>digipin_facility</strong>
             </li>
             <li>Column names are case-insensitive</li>
             <li>Extra columns will be ignored</li>
@@ -349,8 +344,8 @@ function PlantsPage() {
 
         {/* Result messages */}
         {uploadResult && (
-          <div style={{ marginTop: "12px" }}>
-            <div className={`alert alert--${uploadResult.success ? "success" : "error"}`}>
+          <div style={{ marginTop: '12px' }}>
+            <div className={`alert alert--${uploadResult.success ? 'success' : 'error'}`}>
               <div className="alert__content">
                 <p>
                   <strong>{uploadResult.message}</strong>

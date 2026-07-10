@@ -1,43 +1,54 @@
-import { useState, useEffect, useMemo } from "react";
-import { storageService } from "../services/storage";
-import type { MainSheetEntry } from "../types/mainSheet";
-import { computeReportSnapshot, type ReportSnapshot, type ReportRow } from "../utils/reportCalculator";
+import { useState, useEffect, useMemo } from 'react';
+import { storageService } from '../services/storage';
+import type { MainSheetEntry } from '../types/mainSheet';
+import { computeReportSnapshot, type ReportSnapshot, type ReportRow } from '../utils/reportCalculator';
 
-const tabs = ["DLSecondary", "Secondary", "Sanghi", "Dahej", "SOW", "Surat"] as const;
+const tabs = ['KASecondary', 'GASecondary', 'DLSecondary', 'Secondary', 'Sanghi', 'Dahej', 'SOW', 'Surat'] as const;
 type TabName = (typeof tabs)[number];
 
 const tabDisplayNames: Record<TabName, string> = {
-  Secondary: "GJ Secondary",
-  DLSecondary: "DL Secondary",
-  Sanghi: "Sanghi",
-  Dahej: "Dahej",
-  SOW: "SOW",
-  Surat: "Surat",
+  Secondary: 'GJ Secondary',
+  DLSecondary: 'DL Secondary',
+  KASecondary: 'KA Secondary',
+  GASecondary: 'GA Secondary',
+  Sanghi: 'Sanghi',
+  Dahej: 'Dahej',
+  SOW: 'SOW',
+  Surat: 'Surat',
 };
 
 export default function FailureReportStatePage() {
   const [history, setHistory] = useState<ReportSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabName>("Secondary");
-  const [viewDate, setViewDate] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<TabName>('Secondary');
+  const [viewDate, setViewDate] = useState<string>('');
 
   useEffect(() => {
     async function load() {
-      // Always recompute snapshot from main_sheet to ensure all tabs are fresh
-      await storageService.clear("report_history");
+      const entries = await storageService.getAll<MainSheetEntry>('main_sheet');
+      const existingHistory = await storageService.getAll<ReportSnapshot>('report_history');
 
-      const entries = await storageService.getAll<MainSheetEntry>("main_sheet");
       if (entries.length > 0) {
-        const dateStr = new Date().toISOString().split("T")[0];
-        const snapshot = computeReportSnapshot(entries, dateStr);
-        await storageService.create("report_history", snapshot);
-        setHistory([snapshot]);
+        const dateStr = new Date().toISOString().split('T')[0];
+
+        const alreadyExists = existingHistory.some((h) => h.id === dateStr);
+
+        if (!alreadyExists) {
+          const snapshot = computeReportSnapshot(entries, dateStr);
+          await storageService.create('report_history', snapshot);
+        }
+
+        const updatedHistory = await storageService.getAll<ReportSnapshot>('report_history');
+
+        setHistory(updatedHistory);
         setViewDate(dateStr);
       } else {
-        setHistory([]);
+        setHistory(existingHistory);
       }
+
       setLoading(false);
     }
+
     load();
   }, []);
 
@@ -54,7 +65,6 @@ export default function FailureReportStatePage() {
 
   const rows = currentSnapshot ? (currentSnapshot.tabs[activeTab] ?? []) : [];
 
-
   // Create a map of rawDate -> row for quick baseline lookup
   const baselineMap = useMemo(() => {
     if (!baselineSnapshot) return {};
@@ -69,48 +79,77 @@ export default function FailureReportStatePage() {
   const getCellColor = (key: keyof ReportRow, currentValue: number, rawDate: string, rowIndex: number) => {
     let baselineRow = baselineMap[rawDate];
 
-    // If exact date match not found, but this is the top row (newest date),
-    // compare it against the top row of the baseline report.
+    if (!baselineRow) {
+      return 'lightgreen';
+    }
+
     if (!baselineRow && rowIndex === 0 && baselineSnapshot && baselineSnapshot.tabs[activeTab].length > 0) {
       baselineRow = baselineSnapshot.tabs[activeTab][0];
     }
 
     if (!baselineRow) return undefined;
-    const baselineValue = baselineRow[key] as number;
 
-    if (baselineValue === undefined) return undefined;
-    if (currentValue > baselineValue) return "lightgreen";
-    if (currentValue < baselineValue) return "lightcoral";
+    // return undefined;
+    const current = Math.abs(Number(currentValue));
+    const baseline = Math.abs(Number(baselineRow[key]));
+
+    if (!Number.isFinite(current) || !Number.isFinite(baseline)) {
+      return undefined;
+    }
+
+    // treat almost-equal values as equal
+    if (Math.abs(current - baseline) < 0.0001) {
+      return undefined;
+    }
+
+    if (current > baseline) return 'lightgreen';
+    if (current < baseline) return 'lightcoral';
+
     return undefined;
   };
 
-  const isPrimary = ["Sanghi", "Dahej", "Surat", "SOW"].includes(activeTab);
-  const isSecondary = activeTab === "Secondary" || activeTab === "DLSecondary";
+  const isPrimary = ['Sanghi', 'Dahej', 'Surat', 'SOW'].includes(activeTab);
+  const isSecondary = activeTab.toLowerCase().includes('secondary');
 
   if (loading) return <div className="loading">Loading data...</div>;
 
   return (
-    <div className="pivot-report" style={{ height: "100%", display: "flex", flexDirection: "column", padding: 0 }}>
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+    <div
+      className="pivot-report"
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 0,
+      }}
+    >
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+          }}
+        >
           <h2 className="pivot-table__title" style={{ margin: 0 }}>
             Failure Report State
           </h2>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <input
               type="date"
               value={viewDate}
               onChange={(e) => setViewDate(e.target.value)}
               style={{
-                padding: "6px 12px",
-                borderRadius: "6px",
-                border: "1px solid var(--border-color)",
-                background: "var(--bg-secondary)",
-                color: "var(--text-primary)",
-                fontSize: "0.85rem",
-                outline: "none",
-                cursor: "pointer",
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
               }}
             />
           </div>
@@ -118,7 +157,13 @@ export default function FailureReportStatePage() {
 
         {!currentSnapshot ? (
           <div
-            style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", background: "var(--bg-secondary)", borderRadius: "8px" }}
+            style={{
+              padding: '40px',
+              textAlign: 'center',
+              color: 'var(--text-secondary)',
+              background: 'var(--bg-secondary)',
+              borderRadius: '8px',
+            }}
           >
             No report found for this date.
           </div>
@@ -141,36 +186,68 @@ export default function FailureReportStatePage() {
               {rows.map((row, i) => (
                 <tr key={i}>
                   <td>{row.date}</td>
-                  <td className="num-col" style={{ backgroundColor: getCellColor("totalInvoices", row.totalInvoices, row.rawDate, i) }}>
+                  <td
+                    className="num-col"
+                    style={{
+                      backgroundColor: getCellColor('totalInvoices', row.totalInvoices, row.rawDate, i),
+                    }}
+                  >
                     {row.totalInvoices.toLocaleString()}
                   </td>
-                  <td className="num-col" style={{ backgroundColor: getCellColor("billedQty", row.billedQty, row.rawDate, i) }}>
+                  <td
+                    className="num-col"
+                    style={{
+                      backgroundColor: getCellColor('billedQty', row.billedQty, row.rawDate, i),
+                    }}
+                  >
                     {Math.round(row.billedQty).toLocaleString()}
                   </td>
-                  <td className="num-col">{row.failureCount || "-"}</td>
-                  <td className="num-col" style={{ backgroundColor: getCellColor("customerNotFound", row.customerNotFound, row.rawDate, i) }}>
-                    {row.customerNotFound || "-"}
+                  <td className="num-col">{row.failureCount || '-'}</td>
+                  <td
+                    className="num-col"
+                    style={{
+                      backgroundColor: getCellColor('customerNotFound', row.customerNotFound, row.rawDate, i),
+                    }}
+                  >
+                    {row.customerNotFound || '-'}
                   </td>
                   {isSecondary && (
                     <td
                       className="num-col"
-                      style={{ backgroundColor: getCellColor("freightSlabNotMaintained", row.freightSlabNotMaintained, row.rawDate, i) }}
+                      style={{
+                        backgroundColor: getCellColor('freightSlabNotMaintained', row.freightSlabNotMaintained, row.rawDate, i),
+                      }}
                     >
-                      {row.freightSlabNotMaintained || "-"}
+                      {row.freightSlabNotMaintained || '-'}
                     </td>
                   )}
                   {isPrimary && (
-                    <td className="num-col" style={{ backgroundColor: getCellColor("truckNotFound", row.truckNotFound, row.rawDate, i) }}>
-                      {row.truckNotFound || "-"}
+                    <td
+                      className="num-col"
+                      style={{
+                        backgroundColor: getCellColor('truckNotFound', row.truckNotFound, row.rawDate, i),
+                      }}
+                    >
+                      {row.truckNotFound || '-'}
                     </td>
                   )}
                   {isPrimary && (
-                    <td className="num-col" style={{ backgroundColor: getCellColor("freightNotFound", row.freightNotFound, row.rawDate, i) }}>
-                      {row.freightNotFound || "-"}
+                    <td
+                      className="num-col"
+                      style={{
+                        backgroundColor: getCellColor('freightNotFound', row.freightNotFound, row.rawDate, i),
+                      }}
+                    >
+                      {row.freightNotFound || '-'}
                     </td>
                   )}
-                  <td className="num-col" style={{ backgroundColor: getCellColor("resolved", row.resolved, row.rawDate, i) }}>
-                    {row.resolved || "-"}
+                  <td
+                    className="num-col"
+                    style={{
+                      backgroundColor: getCellColor('resolved', row.resolved, row.rawDate, i),
+                    }}
+                  >
+                    {row.resolved || '-'}
                   </td>
                 </tr>
               ))}
@@ -178,7 +255,13 @@ export default function FailureReportStatePage() {
           </table>
         ) : (
           <div
-            style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", background: "var(--bg-secondary)", borderRadius: "8px" }}
+            style={{
+              padding: '40px',
+              textAlign: 'center',
+              color: 'var(--text-secondary)',
+              background: 'var(--bg-secondary)',
+              borderRadius: '8px',
+            }}
           >
             No data available for {activeTab}.
           </div>
@@ -187,21 +270,27 @@ export default function FailureReportStatePage() {
 
       {/* Tabs */}
       <div
-        style={{ display: "flex", gap: "2px", borderTop: "1px solid var(--border-color)", background: "var(--bg-secondary)", padding: "8px 16px" }}
+        style={{
+          display: 'flex',
+          gap: '2px',
+          borderTop: '1px solid var(--border-color)',
+          background: 'var(--bg-secondary)',
+          padding: '8px 16px',
+        }}
       >
         {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: "8px 16px",
-              border: "none",
-              borderBottom: activeTab === tab ? "2px solid var(--accent-blue)" : "2px solid transparent",
-              background: "transparent",
-              color: activeTab === tab ? "var(--accent-blue)" : "var(--text-secondary)",
+              padding: '8px 16px',
+              border: 'none',
+              borderBottom: activeTab === tab ? '2px solid var(--accent-blue)' : '2px solid transparent',
+              background: 'transparent',
+              color: activeTab === tab ? 'var(--accent-blue)' : 'var(--text-secondary)',
               fontWeight: activeTab === tab ? 600 : 400,
-              cursor: "pointer",
-              outline: "none",
+              cursor: 'pointer',
+              outline: 'none',
             }}
           >
             {tabDisplayNames[tab]}

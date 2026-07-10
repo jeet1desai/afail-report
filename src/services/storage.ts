@@ -8,8 +8,8 @@
  * All components interact with data ONLY through this service.
  */
 
-const DB_NAME = "ShipmentFailureReportDB";
-const STORE_NAME = "collections";
+const DB_NAME = 'ShipmentFailureReportDB';
+const STORE_NAME = 'collections';
 
 /**
  * Helper to open and initialize the IndexedDB database
@@ -34,7 +34,7 @@ function getDB(): Promise<IDBDatabase> {
 function getItem<T>(key: string): Promise<T | null> {
   return getDB().then((db) => {
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readonly");
+      const transaction = db.transaction(STORE_NAME, 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get(key);
       request.onsuccess = () => resolve((request.result as T) || null);
@@ -49,7 +49,7 @@ function getItem<T>(key: string): Promise<T | null> {
 function setItem<T>(key: string, value: T): Promise<void> {
   return getDB().then((db) => {
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readwrite");
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.put(value, key);
       request.onsuccess = () => resolve();
@@ -64,7 +64,7 @@ function setItem<T>(key: string, value: T): Promise<void> {
 function removeItem(key: string): Promise<void> {
   return getDB().then((db) => {
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readwrite");
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.delete(key);
       request.onsuccess = () => resolve();
@@ -79,7 +79,7 @@ function removeItem(key: string): Promise<void> {
 function getAllKeys(): Promise<string[]> {
   return getDB().then((db) => {
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, "readonly");
+      const transaction = db.transaction(STORE_NAME, 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.getAllKeys();
       request.onsuccess = () => resolve(request.result as string[]);

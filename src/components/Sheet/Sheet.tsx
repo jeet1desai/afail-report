@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 interface SheetProps {
   children: React.ReactNode;
@@ -9,5 +9,5 @@ interface SheetProps {
  * Wraps toolbar + data grid into a full-height flex column.
  */
 export function Sheet({ children }: SheetProps) {
-  return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>{children}</div>;
+  return <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>{children}</div>;
 }
