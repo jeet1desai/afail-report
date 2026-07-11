@@ -12,6 +12,7 @@ export interface ReportRow {
   truckNotFound: number;
   freightNotFound: number;
   resolved: number;
+  customErrorCounts?: Record<string, number>;
 }
 
 export interface ReportSnapshot {
@@ -78,6 +79,8 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       return true;
     });
 
+    const activeCustomErrors = config.customErrors?.filter((ce) => ce.enabled) || [];
+
     const dateMap: Record<
       string,
       {
@@ -88,6 +91,7 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
         truckNotFound: number;
         freightNotFound: number;
         resolved: number;
+        customErrors: Record<string, number>;
       }
     > = {};
 
@@ -103,7 +107,11 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
           truckNotFound: 0,
           freightNotFound: 0,
           resolved: 0,
+          customErrors: {},
         };
+        for (const ce of activeCustomErrors) {
+          dateMap[dateStr].customErrors[ce.id] = 0;
+        }
       }
 
       const hasInvoice = e.billingDocument ? 1 : 0;
@@ -117,6 +125,15 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       const isTruckNotFound = msgRaw.includes('truck details not found') ? 1 : 0;
       const isFreightNotFound = msgRaw.includes('primary freight lookup not found') || msgRaw.includes('freight not found') ? 1 : 0;
 
+      let matchedAnyCustomError = false;
+      for (const ce of activeCustomErrors) {
+        const isMatch = ce.keywords.some((keyword) => msgRaw.includes(keyword.trim().toLowerCase()));
+        if (isMatch) {
+          dateMap[dateStr].customErrors[ce.id] = (dateMap[dateStr].customErrors[ce.id] || 0) + 1;
+          matchedAnyCustomError = true;
+        }
+      }
+
       dateMap[dateStr].totalInvoices += hasInvoice;
       dateMap[dateStr].billedQty += qty;
       dateMap[dateStr].customerNotFound += isCustomerNotFound;
@@ -128,7 +145,8 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
         (config.failureErrors.customerNotFound && isCustomerNotFound) ||
         (config.failureErrors.freightSlabNotMaintained && isFreightSlab) ||
         (config.failureErrors.truckNotFound && isTruckNotFound) ||
-        (config.failureErrors.freightNotFound && isFreightNotFound);
+        (config.failureErrors.freightNotFound && isFreightNotFound) ||
+        matchedAnyCustomError;
 
       const isFailure = hasConfiguredError ? 1 : 0;
       const isResolved = isFailure && e.aopReceivedFlag?.trim().toUpperCase() === 'X' ? 1 : 0;
@@ -153,6 +171,10 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
       if (config.failureErrors.truckNotFound) failureCount += row.truckNotFound;
       if (config.failureErrors.freightNotFound) failureCount += row.freightNotFound;
 
+      for (const ce of activeCustomErrors) {
+        failureCount += row.customErrors[ce.id] || 0;
+      }
+
       const formattedDate = date === '(blank)' ? date : formatDateWithSuffix(date);
 
       return {
@@ -166,6 +188,7 @@ export function computeReportSnapshot(entries: MainSheetEntry[], dateStr: string
         truckNotFound: row.truckNotFound,
         freightNotFound: row.freightNotFound,
         resolved: row.resolved,
+        customErrorCounts: row.customErrors,
       };
     });
 

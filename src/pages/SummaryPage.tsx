@@ -96,11 +96,15 @@ export default function SummaryPage() {
         const isTruckNotFound = msgRaw.includes('truck details not found') ? 1 : 0;
         const isFreightNotFound = msgRaw.includes('primary freight lookup not found') || msgRaw.includes('freight not found') ? 1 : 0;
 
+        const activeCustomErrors = config.customErrors?.filter((ce) => ce.enabled) || [];
+        const matchedAnyCustomError = activeCustomErrors.some((ce) => ce.keywords.some((keyword) => msgRaw.includes(keyword.trim().toLowerCase())));
+
         const hasConfiguredError =
           (config.failureErrors.customerNotFound && isCustomerNotFound) ||
           (config.failureErrors.freightSlabNotMaintained && isFreightSlab) ||
           (config.failureErrors.truckNotFound && isTruckNotFound) ||
-          (config.failureErrors.freightNotFound && isFreightNotFound);
+          (config.failureErrors.freightNotFound && isFreightNotFound) ||
+          matchedAnyCustomError;
 
         const isFailure = hasConfiguredError ? 1 : 0;
 

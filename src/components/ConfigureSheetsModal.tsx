@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { storageService } from '../services/storage';
 import { Modal } from './Modal';
 import { DEFAULT_SHEETS } from '../utils/defaultSheets';
-import type { CustomSheetConfig } from '../types/customSheet';
+import type { CustomSheetConfig, CustomErrorConfig } from '../types/customSheet';
 
 interface ConfigureSheetsModalProps {
   open: boolean;
@@ -25,6 +25,9 @@ export function ConfigureSheetsModal({ open, onClose, onSave }: ConfigureSheetsM
   const [formFreightSlab, setFormFreightSlab] = useState(false);
   const [formTruckNotFound, setFormTruckNotFound] = useState(false);
   const [formFreightNotFound, setFormFreightNotFound] = useState(false);
+  const [formCustomErrors, setFormCustomErrors] = useState<CustomErrorConfig[]>([]);
+  const [newErrorName, setNewErrorName] = useState('');
+  const [newErrorKeywords, setNewErrorKeywords] = useState('');
   const [formShowInStateReport, setFormShowInStateReport] = useState(true);
   const [formShowInSummary, setFormShowInSummary] = useState(true);
 
@@ -56,6 +59,9 @@ export function ConfigureSheetsModal({ open, onClose, onSave }: ConfigureSheetsM
     setFormFreightSlab(false);
     setFormTruckNotFound(false);
     setFormFreightNotFound(false);
+    setFormCustomErrors([]);
+    setNewErrorName('');
+    setNewErrorKeywords('');
     setFormShowInStateReport(true);
     setFormShowInSummary(true);
     setIsFormOpen(true);
@@ -72,9 +78,40 @@ export function ConfigureSheetsModal({ open, onClose, onSave }: ConfigureSheetsM
     setFormFreightSlab(config.failureErrors.freightSlabNotMaintained);
     setFormTruckNotFound(config.failureErrors.truckNotFound);
     setFormFreightNotFound(config.failureErrors.freightNotFound);
+    setFormCustomErrors(config.customErrors || []);
+    setNewErrorName('');
+    setNewErrorKeywords('');
     setFormShowInStateReport(config.showInStateReport);
     setFormShowInSummary(config.showInSummary);
     setIsFormOpen(true);
+  };
+
+  const handleAddCustomError = () => {
+    if (!newErrorName.trim() || !newErrorKeywords.trim()) return;
+    const keywordsArray = newErrorKeywords
+      .split(',')
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    if (keywordsArray.length === 0) return;
+
+    const newCE: CustomErrorConfig = {
+      id: `ce_${Date.now()}`,
+      name: newErrorName.trim(),
+      keywords: keywordsArray,
+      enabled: true,
+    };
+
+    setFormCustomErrors((prev) => [...prev, newCE]);
+    setNewErrorName('');
+    setNewErrorKeywords('');
+  };
+
+  const handleToggleCustomError = (id: string, enabled: boolean) => {
+    setFormCustomErrors((prev) => prev.map((ce) => (ce.id === id ? { ...ce, enabled } : ce)));
+  };
+
+  const handleDeleteCustomError = (id: string) => {
+    setFormCustomErrors((prev) => prev.filter((ce) => ce.id !== id));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -104,6 +141,7 @@ export function ConfigureSheetsModal({ open, onClose, onSave }: ConfigureSheetsM
         truckNotFound: formTruckNotFound,
         freightNotFound: formFreightNotFound,
       },
+      customErrors: formCustomErrors,
       showInStateReport: formShowInStateReport,
       showInSummary: formShowInSummary,
     };
@@ -334,6 +372,89 @@ export function ConfigureSheetsModal({ open, onClose, onSave }: ConfigureSheetsM
                 <input type="checkbox" checked={formFreightNotFound} onChange={(e) => setFormFreightNotFound(e.target.checked)} />
                 Freight rate not found
               </label>
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+            <label className="form-label" style={{ fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+              Custom Failure Criteria (Match additional errors)
+            </label>
+
+            {formCustomErrors.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+                {formCustomErrors.map((ce) => (
+                  <div key={ce.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '4px 0' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', flex: 1 }}>
+                      <input type="checkbox" checked={ce.enabled} onChange={(e) => handleToggleCustomError(ce.id, e.target.checked)} />
+                      <span style={{ fontWeight: 500 }}>{ce.name}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>({ce.keywords.join(', ')})</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomError(ce.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent-red)',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        padding: '2px 6px',
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Error Name / Label</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Pricing Error"
+                  value={newErrorName}
+                  onChange={(e) => setNewErrorName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <div style={{ flex: 2 }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Keywords (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. price, rate, tariff"
+                  value={newErrorKeywords}
+                  onChange={(e) => setNewErrorKeywords(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={handleAddCustomError}
+                style={{ padding: '6px 12px', fontSize: '0.85rem', height: '31px', display: 'flex', alignItems: 'center' }}
+              >
+                + Add
+              </button>
             </div>
           </div>
 

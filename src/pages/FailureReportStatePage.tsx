@@ -132,7 +132,7 @@ export default function FailureReportStatePage() {
     return map;
   }, [baselineSnapshot, activeConfig, getTabRows]);
 
-  const getCellColor = (key: keyof ReportRow, currentValue: number, rawDate: string, rowIndex: number) => {
+  const getCellColor = (key: keyof ReportRow | string, currentValue: number, rawDate: string, rowIndex: number, isCustomError = false) => {
     let baselineRow = baselineMap[rawDate];
 
     if (!baselineRow) {
@@ -149,7 +149,13 @@ export default function FailureReportStatePage() {
     if (!baselineRow) return undefined;
 
     const current = Math.abs(Number(currentValue));
-    const baseline = Math.abs(Number(baselineRow[key]));
+
+    let baseline = 0;
+    if (isCustomError) {
+      baseline = Math.abs(Number(baselineRow.customErrorCounts?.[key] || 0));
+    } else {
+      baseline = Math.abs(Number(baselineRow[key as keyof ReportRow] || 0));
+    }
 
     if (!Number.isFinite(current) || !Number.isFinite(baseline)) {
       return undefined;
@@ -264,6 +270,13 @@ export default function FailureReportStatePage() {
                 {activeConfig?.failureErrors.freightSlabNotMaintained && <th className="num-col">Freight slab not maintained</th>}
                 {activeConfig?.failureErrors.truckNotFound && <th className="num-col">Truck not found</th>}
                 {activeConfig?.failureErrors.freightNotFound && <th className="num-col">Freight not found</th>}
+                {activeConfig?.customErrors
+                  ?.filter((ce) => ce.enabled)
+                  .map((ce) => (
+                    <th key={ce.id} className="num-col">
+                      {ce.name}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody>
@@ -327,6 +340,22 @@ export default function FailureReportStatePage() {
                       {row.freightNotFound || '-'}
                     </td>
                   )}
+                  {activeConfig?.customErrors
+                    ?.filter((ce) => ce.enabled)
+                    .map((ce) => {
+                      const count = row.customErrorCounts?.[ce.id] || 0;
+                      return (
+                        <td
+                          key={ce.id}
+                          className="num-col"
+                          style={{
+                            backgroundColor: getCellColor(ce.id, count, row.rawDate, i, true),
+                          }}
+                        >
+                          {count || '-'}
+                        </td>
+                      );
+                    })}
                 </tr>
               ))}
             </tbody>

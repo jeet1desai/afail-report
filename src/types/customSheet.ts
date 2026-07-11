@@ -1,3 +1,10 @@
+export interface CustomErrorConfig {
+  id: string;
+  name: string;
+  keywords: string[];
+  enabled: boolean;
+}
+
 export interface CustomSheetConfig {
   id: string;
   name: string;
@@ -11,6 +18,7 @@ export interface CustomSheetConfig {
     truckNotFound: boolean;
     freightNotFound: boolean;
   };
+  customErrors?: CustomErrorConfig[];
   showInStateReport: boolean;
   showInSummary: boolean;
 }
